@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "experimentalDecorators": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "outDir": "./lib",
+    "module": "CommonJS",
+    "target": "ES2017",
+    "lib": ["dom", "esnext"],
+    "importHelpers": true,
+    "declaration": true,
+    "strict": false,
+    "sourceMap": true,
+    "rootDir": "./src",
+  },
+  "include": [
+    "src", "types"
+  ],
+  "exclude": [
+    "./node_modules", "./src/**/*_spec.ts"
+  ]
+}
