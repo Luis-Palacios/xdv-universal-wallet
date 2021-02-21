@@ -1,6 +1,7 @@
+import EthrDID from 'ethr-did'
 import PouchDB from 'pouchdb'
 import { ec, eddsa } from 'elliptic'
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import { getMasterKeyFromSeed } from 'ed25519-hd-key'
 import { IsDefined, IsOptional, IsString } from 'class-validator'
 import { JOSEService } from './JOSEService'
@@ -13,7 +14,8 @@ import { mnemonicToSeed } from 'ethers/lib/utils'
 import Web3 from 'web3'
 import { DIDManager } from '../3id/DIDManager'
 import { DID } from 'dids'
-import * as jwtEd25519 from 'jwt-ed25519-tn'
+import * as ed from 'noble-ed25519';
+import { toEthereumAddress } from 'did-jwt'
 
 export type AlgorithmTypeString = keyof typeof AlgorithmType
 export enum AlgorithmType {
@@ -39,9 +41,11 @@ export class WalletOptions {
   mnemonic?: string
 }
 export interface XDVUniversalProvider {
-  did: DID
+  did: DID & EthrDID
   privateKey: any
+  x25519?: bigint
   getIssuer: Function
+  issuer?: EthrDID
   id: string
   web3?: Web3
   address?: string
@@ -97,6 +101,51 @@ export class Wallet {
     return await JWK.asKey(JSON.parse(content.key), 'jwk')
   }
 
+
+  /**
+   * Creates an universal wallet for ES256K
+   * @param nodeurl EVM Node
+   * @param options { passphrase, walletid, registry, rpcUrl }
+   */
+  static async createES256K(options: any) {
+    let wallet = new Wallet()
+    let ks
+
+    if (options.passphrase && options.walletid) {
+      wallet.db.open(options.passphrase)
+      ks = await wallet.db.get(options.walletid)
+
+      //open an existing wallet
+    } else if (options.passphrase && !options.walletid) {
+      wallet = await wallet.createWallet(options.passphrase)
+      ks = await wallet.db.get(wallet.id)
+    }
+    const kp = new ec('secp256k1')
+    const kpInstance = kp.keyFromPrivate(ks.keypairs.ES256K) as ec.KeyPair
+    const didManager = new DIDManager()
+    const address = toEthereumAddress(kpInstance.getPublic('hex'))
+
+    const did = didManager.createEthrDID(
+      address,
+      kpInstance,
+      options.registry,
+      options.rpcUrl
+    )
+
+    return ({
+      did,
+      address,
+      id: wallet.id,
+      privateKey: kpInstance.getPrivate('hex'),
+      publicKey: kpInstance.getPublic(),
+    } as unknown) as XDVUniversalProvider
+  }
+
+    /**
+   * Creates an universal wallet for Ed25519
+   * @param nodeurl EVM Node
+   * @param options { passphrase, walletid }
+   */
   static async create3IDEd25519(options: any) {
     let wallet = new Wallet()
     let ks
@@ -110,22 +159,33 @@ export class Wallet {
       wallet = await wallet.createWallet(options.passphrase)
       ks = await wallet.db.get(wallet.id)
     }
-    const privateKey = ks.keypairs.ED25519
     const kp = new eddsa('ed25519')
-    const kpkInstance = kp.keyFromSecret(ks.keypairs.ED25519) as eddsa.KeyPair
+    const kpInstance = kp.keyFromSecret(ks.keypairs.ED25519) as eddsa.KeyPair
     const didManager = new DIDManager()
-    const { did, getIssuer } = await didManager.create3ID_Ed25519(kpkInstance)
+    const { did, getIssuer } = await didManager.create3ID_Ed25519(kpInstance)
 
+    const encKey = ed.utils.randomPrivateKey();
+    const encKeyHex = Buffer.from(Uint8Array.from(encKey)).toString('hex');
+    const pubKey = await ed.getPublicKey(encKey);
+    
+    const x25519 = ed.Point.fromHex(Buffer.from(pubKey).toString('hex'))
+    
     return ({
       did,
+      x25519: x25519.toX25519(),
+      encKey,
       getIssuer,
       id: wallet.id,
-      privateKey: kpkInstance.getSecret(),
-      publicKey: kpkInstance.getPublic(),
+      privateKey: kpInstance.getSecret(),
+      publicKey: kpInstance.getPublic(),
     } as unknown) as XDVUniversalProvider
   }
 
-  static async createWeb3Provider(nodeurl: string, options: any) {
+  /**
+   * Creates an universal wallet  for Web3 Providers
+   * @param options { passphrase, walletid, registry, rpcUrl }
+   */
+  static async createWeb3Provider(options: any) {
     //Options will have 2 variables (wallet id and passphrase)
     let web3
     let wallet = new Wallet()
@@ -133,13 +193,13 @@ export class Wallet {
 
     if (options.passphrase && options.walletid) {
       wallet.db.open(options.passphrase)
-      web3 = new Web3(nodeurl)
+      web3 = new Web3(options.rpcUrl)
       ks = await wallet.db.get(options.walletid)
 
       //open an existing wallet
     } else if (options.passphrase && !options.walletid) {
       wallet = await wallet.createWallet(options.passphrase)
-      web3 = new Web3(nodeurl)
+      web3 = new Web3(options.rpcUrl)
       ks = await wallet.db.get(wallet.id)
     }
     const privateKey = '0x' + ks.keypairs.ES256K
@@ -148,16 +208,17 @@ export class Wallet {
     const didManager = new DIDManager()
     const ES256k = new ec('secp256k1')
 
-    const { did, getIssuer } = await didManager.create3IDWeb3(
+    const { did, issuer } = await didManager.create3IDWeb3(
+      address,
       ES256k.keyFromPrivate(ks.keypairs.ES256K),
       web3,
-      address,
+      options.registry
     )
 
     return ({
       did,
       publicKey: ES256k.keyFromPrivate(ks.keypairs.ES256K).getPublic(),
-      getIssuer,
+      issuer,
       web3,
       id: wallet.id,
       address,
@@ -401,6 +462,7 @@ export class Wallet {
         const keys = await this.getPrivateKeyExports(algorithm)
         jwk = keys.jwk
       }
+      // @ts-ignore
       return [null, await JOSEService.encrypt([jwk], payload)]
     }
     return [new Error('invalid_passphrase')]
@@ -448,6 +510,7 @@ export class Wallet {
 
     if (canUseIt) {
       const { jwk } = await this.getPrivateKeyExports(algorithm)
+      // @ts-ignore
       return [null, await JOSEService.encrypt([jwk, ...keys], payload)]
     }
     return [new Error('invalid_passphrase')]

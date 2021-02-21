@@ -1,5 +1,6 @@
+import { bigToUint8Array } from '../crypto/BigIntToUint8Array'
 import { DIDDocumentBuilder } from '../did/DIDDocumentBuilder'
-import { ethers } from 'ethers'
+import { BigNumber, ethers } from 'ethers'
 import { expect } from 'chai'
 import { JOSEService } from './JOSEService'
 import { JWTService } from './JWTService'
@@ -10,26 +11,59 @@ import { DIDManager } from '../3id/DIDManager'
 import { DriveManager } from '../3id/DriveManager'
 import { IPFSManager } from '../3id/IPFSManager'
 import * as privateBox from 'private-box'
+import { W3CVerifiedCredential } from '../3id/W3CVerifiedCredential'
+
 let localStorage = {}
 
 describe('universal wallet - wallet and 3ID', function () {
   let selectedWallet: Wallet
+  let id = null
+  let url = 'https://ropsten.infura.io/v3/79110f2241304162b087759b5c49cf99'
   before(async function () {})
 
   it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {
-    const result = await Wallet.createWeb3Provider(
-      'https://ropsten.infura.io/v3/79110f2241304162b087759b5c49cf99',
-      { passphrase: '1234' },
-    )
-    expect(result.did.id.length).to.be.above(0)
+    const result = await Wallet.createWeb3Provider({
+      passphrase: '1234',
+      rpcUrl: url,
+    })
+    expect(result.id.length).to.be.above(0)
   })
 
   it('when calling createWeb3Provider and create3IDWeb3, should return a web3 instance and wallet id', async function () {
-    const result = await Wallet.createWeb3Provider(
-      'https://ropsten.infura.io/v3/79110f2241304162b087759b5c49cf99',
-      { passphrase: '1234' },
-    )
+    const result = await Wallet.createWeb3Provider({
+      passphrase: '1234',
+      rpcUrl: url,
+    })
+    id = result.id
     expect(result.did.id.length).to.be.above(0)
+  })
+
+  it('when calling createES256K with an existing id, should return a web3 instance and wallet id', async function () {
+    const result = await Wallet.createES256K({
+      passphrase: '1234',
+      rpcUrl: url,
+      walletid: id,
+      registry: '',
+    })
+    expect(result.did.address).equal(result.address)
+  })
+  it('when calling createES256K with an existing id and create a VC, should return a web3 instance and wallet id', async function () {
+    const result = await Wallet.createES256K({
+      passphrase: '1234',
+      rpcUrl: url,
+      walletid: id,
+      registry: '',
+    })
+
+    const vcService = new W3CVerifiedCredential()
+    const vc = await vcService.issueCredential(result.did, result.did, {
+      name: 'Rogelio',
+      lastName: 'Morrell',
+      cedula: '8-713-2230',
+      nationality: 'Panamanian',
+      email: 'rogelio@ifesa.tech'
+    })
+    expect(vc.length).to.be.above(0)
   })
 
   it('when calling create3IDEd25519 , should return a did instance and wallet id', async function () {
@@ -109,27 +143,27 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
     const walletProviderBob = await Wallet.create3IDEd25519({
       passphrase: 'abcdef123456!@#$%^^&*',
     })
-    // auth
+
     await walletProviderAlice.did.authenticate()
     await walletProviderBob.did.authenticate()
-
-    expect(walletProviderAlice.did.id.length).to.be.above(0)
 
     const ipfsManager = new IPFSManager(walletProviderAlice.did)
     await ipfsManager.start()
 
     // Alice encrypts, and only Alice can decrypt
+    const x25519BobPub = bigToUint8Array(walletProviderBob.x25519)
+
     const enc = privateBox.encrypt(Buffer.from('Hola Mundo !!! 2021'), [
-      Uint8Array.from(walletProviderAlice.publicKey),
-      Uint8Array.from(walletProviderBob.publicKey),
+      walletProviderBob.encKey,
     ])
 
-    console.log(Buffer.from(enc).toString('base64'))
-
-    const text = privateBox.decrypt(
-      Buffer.from(enc),
-      Uint8Array.from(walletProviderBob.privateKey),
+    console.log(
+      Buffer.from(enc).toString('base64'),
+      walletProviderBob.encKey,
+      x25519BobPub,
     )
+
+    const text = privateBox.decrypt(Buffer.from(enc), x25519BobPub)
 
     console.log(text)
     // const cid = await ipfsManager.addSignedObject(Buffer.from(enc.toString()), {

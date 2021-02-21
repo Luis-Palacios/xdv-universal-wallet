@@ -1,5 +1,6 @@
 import { JwtCredentialPayload, createVerifiableCredentialJwt, createVerifiablePresentationJwt, JwtPresentationPayload } from 'did-jwt-vc'
 import { DID } from 'dids'
+import moment from 'moment'
 
 export class W3CVerifiedCredential {
   constructor() {}
@@ -13,7 +14,7 @@ export class W3CVerifiedCredential {
   issueCredential(did: DID, issuer: any, holderInfo: any) {
     const vcPayload: JwtCredentialPayload = {
       sub: did.id,
-      nbf: new Date().getTime(),
+      nbf: moment().unix(),
       vc: {
         '@context': ['https://www.w3.org/2018/credentials/v1'],
         type: ['VerifiableCredential'],
