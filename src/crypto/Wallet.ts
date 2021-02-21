@@ -104,7 +104,6 @@ export class Wallet {
 
   /**
    * Creates an universal wallet for ES256K
-   * @param nodeurl EVM Node
    * @param options { passphrase, walletid, registry, rpcUrl }
    */
   static async createES256K(options: any) {

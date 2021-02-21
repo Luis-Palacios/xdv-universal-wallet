@@ -1,6 +1,6 @@
 {
   "name": "xdv-universal-wallet",
-  "version": "5.0.0",
+  "version": "0.1.0",
   "description": "A wallet for documents and tokens",
   "main": "lib/index.js",
   "scripts": {
@@ -9,11 +9,11 @@
     "build": "tsc",
     "watch": "tsnd --respawn index.ts --watch ./src"
   },
-  "keywords": [],
+  "keywords": ["universal wallet"],
   "author": "@molekilla",
   "license": "MIT",
   "repository": {
-    "url": "https://github.com/molekilla/xdv-fe-builder"
+    "url": "https://github.com/Electronic-Signatures-Industries/xdv-universal-wallet"
   },
   "devDependencies": {
     "@types/elliptic": "^6.4.12",
