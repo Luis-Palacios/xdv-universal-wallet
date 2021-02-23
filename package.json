@@ -9,7 +9,9 @@
     "build": "tsc",
     "watch": "tsnd --respawn index.ts --watch ./src"
   },
-  "keywords": ["universal wallet"],
+  "keywords": [
+    "universal wallet"
+  ],
   "author": "@molekilla",
   "license": "MIT",
   "repository": {
