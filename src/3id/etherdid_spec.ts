@@ -2,16 +2,17 @@ import { bigToUint8Array } from '../crypto/BigIntToUint8Array'
 import { DIDDocumentBuilder } from '../did/DIDDocumentBuilder'
 import { BigNumber, ethers } from 'ethers'
 import { expect } from 'chai'
-import { JOSEService } from './JOSEService'
-import { JWTService } from './JWTService'
-import { KeyConvert, X509Info } from './KeyConvert'
-import { LDCryptoTypes } from './LDCryptoTypes'
-import { Wallet } from './Wallet'
+import { JOSEService } from '../crypto/JOSEService'
+import { JWTService } from '../crypto/JWTService'
+import { KeyConvert, X509Info } from '../crypto/KeyConvert'
+import { LDCryptoTypes } from '../crypto/LDCryptoTypes'
+import { Wallet } from '../crypto/Wallet'
 import { DIDManager } from './DIDManager'
 import { DriveManager } from './DriveManager'
 import { IPFSManager } from './IPFSManager'
 import * as privateBox from 'private-box'
 import { W3CVerifiedCredential } from './W3CVerifiedCredential'
+import moment from 'moment'
 
 let localStorage = {}
 
@@ -24,181 +25,83 @@ describe('DID specs', function () {
   it('when KYC onboarding should pay with blockchain and register to get verified', async function () {
     //Register Name, Email and Ether account
     const personalinfo = {
-      name: "John Doe",
-      email: "jd@gmail.com",
-      account: "0x"
-    } 
+      name: 'John Doe',
+      email: 'jd@gmail.com',
+      account: '0x',
+    }
 
     //Pay Services and return TX Hash
 
-    const txhash = function gettxhash() {
-
-      return "0xa"
-            
+    const txhash = function payKYCService() {
+      return '0xa'
     }
     //API redirects to request Wallet signature
-        
-    
     const result = await Wallet.createWeb3Provider({
       passphrase: '1234',
       rpcUrl: url,
     })
-    result.did
+    const sig = await result.did.createJWS({
+      name: 'Personal Signing',
+      txhash,
+      timestamp: moment().unix(),
+    })
 
+    const sigEth = ethers.utils.splitSignature(sig.signatures[0].signature)
+
+    // Create DID
+    const resultCreated = await function registerDID() {
+      // ecrecover
+      return '0xb'
+    }
+
+    // Optional - create DID backup in Swarm
     expect(result.id.length).to.be.above(0)
   })
 
-  it('when calling createWeb3Provider and create3IDWeb3, should return a web3 instance and wallet id', async function () {
+  it('when change owner, should validate it is', async function () {
+    //Register Name, Email and Ether account
+    const personalinfo = {
+      name: 'John Doe',
+      email: 'jd@gmail.com',
+      account: '0x',
+    }
+
+    //Pay Services and return TX Hash
+
+    const txhash = function payKYCService() {
+      return '0xa'
+    }
+    //API redirects to request Wallet signature
     const result = await Wallet.createWeb3Provider({
       passphrase: '1234',
       rpcUrl: url,
     })
-    id = result.id
-    expect(result.did.id.length).to.be.above(0)
-  })
-
-  it('when calling createES256K with an existing id, should return a web3 instance and wallet id', async function () {
-    const result = await Wallet.createES256K({
-      passphrase: '1234',
-      rpcUrl: url,
-      walletid: id,
-      registry: '',
-    })
-    expect(result.did.address).equal(result.address)
-  })
-  it('when calling createES256K with an existing id and create a VC, should return a web3 instance and wallet id', async function () {
-    const result = await Wallet.createES256K({
-      passphrase: '1234',
-      rpcUrl: url,
-      walletid: id,
-      registry: '',
+    const sig = await result.did.createJWS({
+      name: 'Personal Signing',
+      txhash,
+      timestamp: moment().unix(),
     })
 
-    const vcService = new W3CVerifiedCredential()
-    const vc = await vcService.issueCredential(result.did, result.did, {
-      name: 'Rogelio',
-      lastName: 'Morrell',
-      cedula: '8-713-2230',
-      nationality: 'Panamanian',
-      email: 'rogelio@ifesa.tech'
-    })
-    expect(vc.length).to.be.above(0)
-  })
+    const sigEth = ethers.utils.splitSignature(sig.signatures[0].signature)
 
-  it('when calling create3IDEd25519 , should return a did instance and wallet id', async function () {
-    const res = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456',
-    })
-    await res.did.authenticate()
-    const issuer = res.getIssuer()
-    expect(issuer.alg).equal('Ed25519')
-    expect(res.did.id.length).to.be.above(0)
+    // Create DID
+    const resultCreated = await function registerDID() {
+      // ecrecover
+      return '0xb'
+    }
+    // Optional - create DID backup in Swarm
+
+    // Change owner
+    await result.did.changeOwner('0xc')
+
+    // Add Delegate
+    const since = moment().unix() + (60*60*1)
+    await result.did.addDelegate('0xd', {
+      delegateType: '',
+      expiresIn: since,
+    });
+
+    expect(result.id.length).to.be.above(0)
   })
 })
-
-describe('universal wallet - wallet, 3ID and IPLD', function () {
-  let selectedWallet: Wallet
-  before(async function () {})
-
-  it('when adding a signed DID/IPLD object , should fetch and return uploaded data', async function () {
-    const did = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456',
-    })
-    expect(did.id.length).to.be.above(0)
-
-    const ipfsManager = new IPFSManager(did.did)
-    await ipfsManager.start()
-
-    const fil = Buffer.from('fffffffffffffffffffffff')
-    // auth
-    await did.did.authenticate()
-    const cid = await ipfsManager.addSignedObject(fil, {
-      name: 'UnitTest.txt',
-      contentType: 'text/text',
-      lastModified: new Date(),
-    })
-    expect(cid.length).to.be.above(0)
-
-    const res = await ipfsManager.getObject(cid)
-    expect(res.value.name).equal('UnitTest.txt')
-  })
-
-  it('when adding a signed and encrypted DID/IPLD object , should fetch and return uploaded data', async function () {
-    const did = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456',
-    })
-    const didBob = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456!@#$%^^&*',
-    })
-    expect(did.id.length).to.be.above(0)
-
-    const ipfsManager = new IPFSManager(did.did)
-    await ipfsManager.start()
-
-    // auth
-    await did.did.authenticate()
-    await didBob.did.authenticate()
-    // Alice encrypts, and both Alice and Bob can decrypt
-    const enc = await ipfsManager.encryptObject('Hola Mundo !!!', [
-      didBob.did.id,
-    ])
-
-    console.log(enc.toString())
-
-    // const cid = await ipfsManager.addSignedObject(Buffer.from(enc.toString()), {
-    //   name: 'UnitTestEnc.txt',
-    //   contentType: 'text/text',
-    //   lastModified: new Date(),
-    // })
-    // expect(cid.length).to.be.above(0)
-    const res = await ipfsManager.decryptObject(didBob.did, enc.toString(), {})
-    expect(res.cleartext).equal('Hola Mundo !!!')
-  })
-
-  xit('when adding a signed and encrypted DID/IPLD object , should failed decrypting if not allowed', async function () {
-    const walletProviderAlice = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456',
-    })
-    const walletProviderBob = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456!@#$%^^&*',
-    })
-
-    await walletProviderAlice.did.authenticate()
-    await walletProviderBob.did.authenticate()
-
-    const ipfsManager = new IPFSManager(walletProviderAlice.did)
-    await ipfsManager.start()
-
-    // Alice encrypts, and only Alice can decrypt
-    const x25519BobPub = bigToUint8Array(walletProviderBob.x25519)
-
-    const enc = privateBox.encrypt(Buffer.from('Hola Mundo !!! 2021'), [
-      walletProviderBob.encKey,
-    ])
-
-    console.log(
-      Buffer.from(enc).toString('base64'),
-      walletProviderBob.encKey,
-      x25519BobPub,
-    )
-
-    const text = privateBox.decrypt(Buffer.from(enc), x25519BobPub)
-
-    console.log(text)
-    // const cid = await ipfsManager.addSignedObject(Buffer.from(enc.toString()), {
-    //   name: 'UnitTestEnc.txt',
-    //   contentType: 'text/text',
-    //   lastModified: new Date(),
-    // })
-    // expect(cid.length).to.be.above(0)
-    //    try {
-    // const res = await ipfsManager.decryptObject(
-    //   did.did,
-    //   enc.toString(),
-    //   {},
-    // )
-
-    // } catch (e) {
-    // }
-  })
-})
+///
