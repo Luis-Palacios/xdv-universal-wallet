@@ -8,8 +8,7 @@ import { KeyConvert, X509Info } from './KeyConvert'
 import { LDCryptoTypes } from './LDCryptoTypes'
 import { Wallet } from './Wallet'
 import { DIDManager } from '../3id/DIDManager'
-import { DriveManager } from '../3id/DriveManager'
-import { IPFSManager } from '../3id/IPFSManager'
+import { IPLDManager } from '../3id/IPLDManager'
 import * as privateBox from 'private-box'
 import { W3CVerifiedCredential } from '../3id/W3CVerifiedCredential'
 
@@ -45,7 +44,7 @@ describe('universal wallet - wallet and 3ID', function () {
       walletid: id,
       registry: '',
     })
-    expect(result.did.address).equal(result.address)
+    expect(result.address).equal(result.address)
   })
   it('when calling createES256K with an existing id and create a VC, should return a web3 instance and wallet id', async function () {
     const result = await Wallet.createES256K({
@@ -61,7 +60,7 @@ describe('universal wallet - wallet and 3ID', function () {
       lastName: 'Morrell',
       cedula: '8-713-2230',
       nationality: 'Panamanian',
-      email: 'rogelio@ifesa.tech'
+      email: 'rogelio@ifesa.tech',
     })
     expect(vc.length).to.be.above(0)
   })
@@ -87,7 +86,7 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
     })
     expect(did.id.length).to.be.above(0)
 
-    const ipfsManager = new IPFSManager(did.did)
+    const ipfsManager = new IPLDManager(did.did)
     await ipfsManager.start()
 
     const fil = Buffer.from('fffffffffffffffffffffff')
@@ -113,7 +112,7 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
     })
     expect(did.id.length).to.be.above(0)
 
-    const ipfsManager = new IPFSManager(did.did)
+    const ipfsManager = new IPLDManager(did.did)
     await ipfsManager.start()
 
     // auth
@@ -136,50 +135,25 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
     expect(res.cleartext).equal('Hola Mundo !!!')
   })
 
-  xit('when adding a signed and encrypted DID/IPLD object , should failed decrypting if not allowed', async function () {
-    const walletProviderAlice = await Wallet.create3IDEd25519({
+  it('when adding a signed and encrypted DID/IPLD object , should failed decrypting if not allowed', async function () {
+    const walletProviderAlice = await Wallet.createES256K({
       passphrase: 'abcdef123456',
     })
-    const walletProviderBob = await Wallet.create3IDEd25519({
+    const walletProviderBob = await Wallet.createES256K({
       passphrase: 'abcdef123456!@#$%^^&*',
     })
 
-    await walletProviderAlice.did.authenticate()
-    await walletProviderBob.did.authenticate()
-
-    const ipfsManager = new IPFSManager(walletProviderAlice.did)
+    const ipfsManager = new IPLDManager(walletProviderAlice.did)
     await ipfsManager.start()
-
-    // Alice encrypts, and only Alice can decrypt
-    const x25519BobPub = bigToUint8Array(walletProviderBob.x25519)
-
-    const enc = privateBox.encrypt(Buffer.from('Hola Mundo !!! 2021'), [
-      walletProviderBob.encKey,
-    ])
-
-    console.log(
-      Buffer.from(enc).toString('base64'),
-      walletProviderBob.encKey,
-      x25519BobPub,
+    console.log(walletProviderBob.publicKey)
+    const message = await walletProviderAlice.secureMessage.encrypt(
+      walletProviderBob.publicKey,
+      Buffer.from('Hola Mundo Secreto!'),
     )
 
-    const text = privateBox.decrypt(Buffer.from(enc), x25519BobPub)
 
-    console.log(text)
-    // const cid = await ipfsManager.addSignedObject(Buffer.from(enc.toString()), {
-    //   name: 'UnitTestEnc.txt',
-    //   contentType: 'text/text',
-    //   lastModified: new Date(),
-    // })
-    // expect(cid.length).to.be.above(0)
-    //    try {
-    // const res = await ipfsManager.decryptObject(
-    //   did.did,
-    //   enc.toString(),
-    //   {},
-    // )
+    const plaintext = await walletProviderBob.secureMessage.decrypt(message)
 
-    // } catch (e) {
-    // }
+    expect(plaintext).equal('Hola Mundo Secreto!')
   })
 })

@@ -16,6 +16,7 @@ import { DIDManager } from '../3id/DIDManager'
 import { DID } from 'dids'
 import * as ed from 'noble-ed25519';
 import { toEthereumAddress } from 'did-jwt'
+import EthCrypto from 'eth-crypto';
 
 export type AlgorithmTypeString = keyof typeof AlgorithmType
 export enum AlgorithmType {
@@ -42,8 +43,8 @@ export class WalletOptions {
 }
 export interface XDVUniversalProvider {
   did: DID & EthrDID
+  secureMessage: any;
   privateKey: any
-  x25519?: bigint
   getIssuer: Function
   issuer?: EthrDID
   id: string
@@ -124,6 +125,25 @@ export class Wallet {
     const didManager = new DIDManager()
     const address = toEthereumAddress(kpInstance.getPublic('hex'))
 
+    const encrypt = async (pub, message) => {
+      const data: any = await EthCrypto.encryptWithPublicKey(
+        pub.replace('0x', ''),
+        message
+      );
+    
+      return EthCrypto.cipher.stringify(data);
+    }
+
+    const decrypt = async(cipher) => {
+      const data: any = await EthCrypto.decryptWithPrivateKey(
+        ks.keypairs.ES256K,
+        EthCrypto.cipher.parse(cipher)
+      );
+
+      return data;
+    }
+
+    // Buffer.from(pub, 'hex')
     const did = didManager.createEthrDID(
       address,
       kpInstance,
@@ -133,13 +153,16 @@ export class Wallet {
 
     return ({
       did,
+      secureMessage: {
+        encrypt,
+        decrypt
+      },
       address,
       id: wallet.id,
       privateKey: kpInstance.getPrivate('hex'),
-      publicKey: kpInstance.getPublic(),
+      publicKey: kpInstance.getPublic('hex'),
     } as unknown) as XDVUniversalProvider
   }
-
     /**
    * Creates an universal wallet for Ed25519
    * @param nodeurl EVM Node
@@ -162,17 +185,10 @@ export class Wallet {
     const kpInstance = kp.keyFromSecret(ks.keypairs.ED25519) as eddsa.KeyPair
     const didManager = new DIDManager()
     const { did, getIssuer } = await didManager.create3ID_Ed25519(kpInstance)
-
-    const encKey = ed.utils.randomPrivateKey();
-    const encKeyHex = Buffer.from(Uint8Array.from(encKey)).toString('hex');
-    const pubKey = await ed.getPublicKey(encKey);
-    
-    const x25519 = ed.Point.fromHex(Buffer.from(pubKey).toString('hex'))
-    
+  
+      
     return ({
       did,
-      x25519: x25519.toX25519(),
-      encKey,
       getIssuer,
       id: wallet.id,
       privateKey: kpInstance.getSecret(),
@@ -204,9 +220,28 @@ export class Wallet {
     const privateKey = '0x' + ks.keypairs.ES256K
     web3.eth.accounts.wallet.add(privateKey)
     const address = web3.eth.accounts.privateKeyToAccount(privateKey).address
+    web3.defaultAccount = address;
     const didManager = new DIDManager()
     const ES256k = new ec('secp256k1')
 
+
+    const encrypt = async (pub, message) => {
+      const data: any = await EthCrypto.encryptWithPublicKey(
+        pub.replace('0x', ''),
+        message
+      );
+    
+      return EthCrypto.cipher.stringify(data);
+    }
+
+    const decrypt = async(cipher) => {
+      const data: any = await EthCrypto.decryptWithPrivateKey(
+        ks.keypairs.ES256K,
+        EthCrypto.cipher.parse(cipher)
+      );
+
+      return data;
+    }
     const { did, issuer } = await didManager.create3IDWeb3(
       address,
       ES256k.keyFromPrivate(ks.keypairs.ES256K),
@@ -216,6 +251,10 @@ export class Wallet {
 
     return ({
       did,
+      secureMessage:{
+        encrypt,
+        decrypt
+      },
       publicKey: ES256k.keyFromPrivate(ks.keypairs.ES256K).getPublic(),
       issuer,
       web3,

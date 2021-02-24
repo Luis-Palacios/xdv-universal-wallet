@@ -9,7 +9,7 @@ import { keccak256 } from 'ethers/lib/utils'
 const multicodec = require('multicodec')
 
 
-export class IPFSManager {
+export class IPLDManager {
     client: any;
     provider: ethers.providers.JsonRpcProvider;
     ipld: any;

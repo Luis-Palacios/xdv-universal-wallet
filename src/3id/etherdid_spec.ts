@@ -8,8 +8,7 @@ import { KeyConvert, X509Info } from '../crypto/KeyConvert'
 import { LDCryptoTypes } from '../crypto/LDCryptoTypes'
 import { Wallet } from '../crypto/Wallet'
 import { DIDManager } from './DIDManager'
-import { DriveManager } from './DriveManager'
-import { IPFSManager } from './IPFSManager'
+import { IPLDManager } from './IPLDManager'
 import * as privateBox from 'private-box'
 import { W3CVerifiedCredential } from './W3CVerifiedCredential'
 import moment from 'moment'
@@ -76,16 +75,17 @@ describe('DID specs', function () {
       passphrase: '1234',
       rpcUrl: url,
     })
-    const sig = await result.did.createJWS({
-      name: 'Personal Signing',
-      txhash,
-      timestamp: moment().unix(),
-    })
 
-    const sigEth = ethers.utils.splitSignature(sig.signatures[0].signature)
+    const wallet = new Wallet()
+    await wallet.open(result.id);
+    const payload = Buffer.from('PersonalSigning');
+    const [e, res] = await wallet.sign('ES256K', payload)
+    const sigEth = ethers.utils.splitSignature(res)
 
     // Create DID
-    const resultCreated = await function registerDID() {
+    const resultCreated = await function registerDID({
+      ...sigEth
+    }) {
       // ecrecover
       return '0xb'
     }
