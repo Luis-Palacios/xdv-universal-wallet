@@ -92,6 +92,8 @@ export class Wallet {
     PouchDB.plugin(require('crypto-pouch'))
   }
 
+
+
   /**
    * Gets a public key from storage
    * @param id
@@ -100,6 +102,16 @@ export class Wallet {
   public async getPublicKey(id: string) {
     const content = await this.db.get(id)
     return await JWK.asKey(JSON.parse(content.key), 'jwk')
+  }
+
+  public async getUniversalWalletKey(alg: string) {
+    const jwk = JWK.createKey(
+      'oct',
+      256,
+      {
+        alg
+      }
+    );
   }
 
 

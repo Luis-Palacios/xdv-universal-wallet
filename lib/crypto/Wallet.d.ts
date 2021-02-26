@@ -68,6 +68,7 @@ export declare class Wallet {
      * @param algorithm
      */
     getPublicKey(id: string): Promise<any>;
+    getUniversalWalletKey(alg: string): Promise<void>;
     /**
      * Creates an universal wallet for ES256K
      * @param options { passphrase, walletid, registry, rpcUrl }
