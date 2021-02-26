@@ -1,8 +1,10 @@
 /// <reference types="node" />
+import EthrDID from 'ethr-did';
 import { ec, eddsa } from 'elliptic';
 import { ethers } from 'ethers';
-import { JWK } from 'node-jose';
 import { Subject } from 'rxjs';
+import Web3 from 'web3';
+import { DID } from 'dids';
 export declare type AlgorithmTypeString = keyof typeof AlgorithmType;
 export declare enum AlgorithmType {
     RSA = 0,
@@ -20,6 +22,17 @@ export declare class WalletOptions {
     password: string;
     mnemonic?: string;
 }
+export interface XDVUniversalProvider {
+    did: DID & EthrDID;
+    secureMessage: any;
+    privateKey: any;
+    getIssuer: Function;
+    issuer?: EthrDID;
+    id: string;
+    web3?: Web3;
+    address?: string;
+    publicKey: any;
+}
 export interface KeystoreDbModel {
     _id: any;
     keypairs: KeyStoreModel;
@@ -29,27 +42,16 @@ export interface KeystoreDbModel {
     publicKeys?: any;
 }
 export interface KeyStoreModel {
-    BLS?: any;
     ES256K: any;
     P256: any;
-    RSA: any;
     ED25519: any;
-    Filecoin: any;
-    Vechain?: any;
-    Polkadot?: any;
 }
 export declare class KeyStore implements KeyStoreModel {
     ED25519: any;
     ES256K: any;
     P256: any;
-    RSA: any;
-    BLS: any;
-    Filecoin: any;
-    Vechain: any;
-    Polkadot: any;
     constructor();
 }
-declare type FilecoinSignTypes = 'filecoin' | 'lotus';
 export declare class Wallet {
     id: string;
     onRequestPassphraseSubscriber: Subject<any>;
@@ -61,23 +63,27 @@ export declare class Wallet {
     accepted: any;
     constructor();
     /**
-     * Verifies a filecoin signed transaction
-     * @param signature a filecoin signature
-     * @param cborContent a filecoint raw transaction
-     */
-    verifyFilecoinSignature(signature: string, cborContent: string): Promise<boolean>;
-    /**
-     * Signs a filecoin transaction
-     * @param transaction a filecoin transaction
-     * @param signer Sets the filecoin or lotus signer
-     */
-    signFilecoinTransaction(transaction: any, signer: FilecoinSignTypes): Promise<[Error, any?]>;
-    /**
      * Gets a public key from storage
      * @param id
      * @param algorithm
      */
     getPublicKey(id: string): Promise<any>;
+    /**
+     * Creates an universal wallet for ES256K
+     * @param options { passphrase, walletid, registry, rpcUrl }
+     */
+    static createES256K(options: any): Promise<XDVUniversalProvider>;
+    /**
+   * Creates an universal wallet for Ed25519
+   * @param nodeurl EVM Node
+   * @param options { passphrase, walletid }
+   */
+    static create3IDEd25519(options: any): Promise<XDVUniversalProvider>;
+    /**
+     * Creates an universal wallet  for Web3 Providers
+     * @param options { passphrase, walletid, registry, rpcUrl }
+     */
+    static createWeb3Provider(options: any): Promise<XDVUniversalProvider>;
     /**
      * Sets a public key in storage
      * @param id
@@ -93,11 +99,10 @@ export declare class Wallet {
      * @param value
      */
     setImportKey(id: string, value: object): Promise<void>;
-    createWallet(password: string, options: any): Promise<this>;
+    createWallet(password: string, options?: any): Promise<this>;
     getPrivateKey(algorithm: AlgorithmTypeString): Promise<ec.KeyPair | eddsa.KeyPair>;
     getPrivateKeyExports(algorithm: AlgorithmTypeString): Promise<any>;
     canUse(): Promise<unknown>;
-    signExternal(): Promise<any>;
     /**
      * Signs with selected algorithm
      * @param algorithm Algorithm
@@ -129,15 +134,10 @@ export declare class Wallet {
      */
     encryptMultipleJWE(keys: any[], algorithm: AlgorithmTypeString, payload: any): Promise<[Error, any?]>;
     /**
-    * Generates a mnemonic
-    */
+     * Generates a mnemonic
+     */
     static generateMnemonic(): ethers.utils.Mnemonic;
     open(id: string): Promise<void>;
-    extractP12(p12FilePath: string, password: string): {
-        pemKey: string;
-        pemCertificate: string;
-        commonName: any;
-    };
     /**
      * Derives a new child Wallet
      */
@@ -148,13 +148,9 @@ export declare class Wallet {
      * Derives a wallet from a path
      */
     deriveFromPath(path: string): any;
-    getFilecoinDeriveChild(): any;
     /**
      * Gets EdDSA key pair
      */
     getEd25519(): eddsa.KeyPair;
-    getP256(): ec.KeyPair;
     getES256K(): ec.KeyPair;
-    static getRSA256Standalone(len?: number): Promise<JWK.RSAKey>;
 }
-export {};

@@ -12,15 +12,6 @@ export declare class X509Info {
     commonName: string;
 }
 export declare class KeyConvert {
-    static getX509RSA(kp: any): Promise<{
-        jwk: any;
-        der: any;
-        pemAsPrivate: any;
-        pemAsPublic: any;
-        ldSuite: {
-            publicKeyJwk: any;
-        };
-    }>;
     /**
      * Returns private keys in DER, JWK and PEM formats
      * @param kp Key pair
@@ -71,16 +62,7 @@ export declare class KeyConvert {
         der: any;
         pem: any;
     }>;
-    static createLinkedDataJsonFormat(algorithm: LDCryptoTypes, key: KeyLike, hasPrivate?: boolean): (PrivateKey);
-    /**
- * Returns private keys in JWK and PEM formats
- * @param kp Key pair
- * @param passphrase passphrase
- */
-    static getRSA(rsa: any): {
-        jwk: any;
-        pem: any;
-    };
+    static createLinkedDataJsonFormat(algorithm: LDCryptoTypes, key: KeyLike, hasPrivate?: boolean): Promise<PrivateKey>;
 }
 export interface KeyLike {
     publicPem?: string;

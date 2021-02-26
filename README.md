@@ -36,26 +36,59 @@ Creates a 3ID protocol enabled Ed25519 or Web3 provider
 
 #### static async createES256K(options: any)
   
-Creates an universal wallet for ES256K
+Creates an ES256K universal wallet
 
 Parameters
-* @param options { passphrase, walletid, rpcUrl }
 
+* `passphrase`: Passphrase
+* `walletid`: A wallet id, set it to load a previously created wallet, otherwise leave empty
+* `rpcUrl`: An EVM Compatible chain (Ethereum, Binance Smart Chain, etc)
+* `registry`: Contract address for EVM compatible ethr-did registry
+
+Returns a `XDVUniversalProvider`
+
+* `did`: A DID object from 3ID library. Allows to authenticate and sign with IPLD
+* `secureMesssage`: Uses `EthCrypto` for encrypting and decrypting
+* `publicKey`: A public key as an array like
+* `issuer`: A DID object for issue signers
+* `web3`: Web3 instance used by DApps
+* `id`: A wallet id
+* `address`: Wallet address
 
 #### static async create3IDEd25519(options: any)
   
-Creates an universal wallet for Ed25519
+Creates an Ed25519 universal wallet
+
+>Note: Signing only, support for X25519 will be added later
+
+Creates an universal wallet for ES256K
 
 Parameters
-* @param options { passphrase, walletid, rpcUrl }
+
+* `passphrase`: Passphrase
+* `walletid`: A wallet id, set it to load a previously created wallet, otherwise leave empty
+
+Returns a `XDVUniversalProvider`
+
+* `did`: A DID object from 3ID library. Allows to authenticate and sign with IPLD
+* `secureMesssage`: Uses `EthCrypto` for encrypting and decrypting
+* `publicKey`: A public key as an array like
+* `issuer`: A DID object for issue signers
+* `web3`: Web3 instance used by DApps
+* `id`: A wallet id
+* `address`: Wallet address
 
 
 #### static async createWeb3Provider(options: any)
   
-Creates an universal wallet for Web3Provider
+Creates a Web3 provider universal wallet
 
 Parameters
-* @param options { passphrase, walletid, rpcUrl }
+
+* `passphrase`: Passphrase
+* `walletid`: A wallet id, set it to load a previously created wallet, otherwise leave empty
+* `rpcUrl`: An EVM Compatible chain (Ethereum, Binance Smart Chain, etc)
+* `registry`: Contract address for EVM compatible ethr-did registry
 
 ### 3id/DIDManager
 
