@@ -14,9 +14,10 @@ import { mnemonicToSeed } from 'ethers/lib/utils'
 import Web3 from 'web3'
 import { DIDManager } from '../3id/DIDManager'
 import { DID } from 'dids'
-import * as ed from 'noble-ed25519';
+import * as ed from 'noble-ed25519'
 import { toEthereumAddress } from 'did-jwt'
-import EthCrypto from 'eth-crypto';
+import EthCrypto from 'eth-crypto'
+import { stringToBytes } from 'did-jwt/lib/util'
 
 export type AlgorithmTypeString = keyof typeof AlgorithmType
 export enum AlgorithmType {
@@ -43,7 +44,7 @@ export class WalletOptions {
 }
 export interface XDVUniversalProvider {
   did: DID & EthrDID
-  secureMessage: any;
+  secureMessage: any
   privateKey: any
   getIssuer: Function
   issuer?: EthrDID
@@ -83,6 +84,14 @@ export class KeyStore implements KeyStoreModel {
   constructor() {}
 }
 
+export interface Account {
+  _id: string
+  id: string
+  timestamp: Date
+  isActive: boolean
+  isLocked: boolean
+}
+
 export class Wallet {
   public id: string
   public onRequestPassphraseSubscriber: Subject<any> = new Subject<any>()
@@ -100,8 +109,6 @@ export class Wallet {
     PouchDB.plugin(require('crypto-pouch'))
   }
 
-
-
   /**
    * Gets a public key from storage
    * @param id
@@ -113,15 +120,10 @@ export class Wallet {
   }
 
   public async getUniversalWalletKey(alg: string) {
-    const jwk = JWK.createKey(
-      'oct',
-      256,
-      {
-        alg
-      }
-    );
+    const jwk = JWK.createKey('oct', 256, {
+      alg,
+    })
   }
-
 
   /**
    * Creates an universal wallet for ES256K
@@ -148,19 +150,19 @@ export class Wallet {
     const encrypt = async (pub, message) => {
       const data: any = await EthCrypto.encryptWithPublicKey(
         pub.replace('0x', ''),
-        message
-      );
-    
-      return EthCrypto.cipher.stringify(data);
+        message,
+      )
+
+      return EthCrypto.cipher.stringify(data)
     }
 
-    const decrypt = async(cipher) => {
+    const decrypt = async (cipher) => {
       const data: any = await EthCrypto.decryptWithPrivateKey(
         ks.keypairs.ES256K,
-        EthCrypto.cipher.parse(cipher)
-      );
+        EthCrypto.cipher.parse(cipher),
+      )
 
-      return data;
+      return data
     }
 
     // Buffer.from(pub, 'hex')
@@ -168,14 +170,14 @@ export class Wallet {
       address,
       kpInstance,
       options.registry,
-      options.rpcUrl
+      options.rpcUrl,
     )
 
     return ({
       did,
       secureMessage: {
         encrypt,
-        decrypt
+        decrypt,
       },
       address,
       id: wallet.id,
@@ -183,7 +185,7 @@ export class Wallet {
       publicKey: kpInstance.getPublic('hex'),
     } as unknown) as XDVUniversalProvider
   }
-    /**
+  /**
    * Creates an universal wallet for Ed25519
    * @param nodeurl EVM Node
    * @param options { passphrase, walletid }
@@ -205,8 +207,7 @@ export class Wallet {
     const kpInstance = kp.keyFromSecret(ks.keypairs.ED25519) as eddsa.KeyPair
     const didManager = new DIDManager()
     const { did, getIssuer } = await didManager.create3ID_Ed25519(kpInstance)
-  
-      
+
     return ({
       did,
       getIssuer,
@@ -240,40 +241,39 @@ export class Wallet {
     const privateKey = '0x' + ks.keypairs.ES256K
     web3.eth.accounts.wallet.add(privateKey)
     const address = web3.eth.accounts.privateKeyToAccount(privateKey).address
-    web3.defaultAccount = address;
+    web3.defaultAccount = address
     const didManager = new DIDManager()
     const ES256k = new ec('secp256k1')
-
 
     const encrypt = async (pub, message) => {
       const data: any = await EthCrypto.encryptWithPublicKey(
         pub.replace('0x', ''),
-        message
-      );
-    
-      return EthCrypto.cipher.stringify(data);
+        message,
+      )
+
+      return EthCrypto.cipher.stringify(data)
     }
 
-    const decrypt = async(cipher) => {
+    const decrypt = async (cipher) => {
       const data: any = await EthCrypto.decryptWithPrivateKey(
         ks.keypairs.ES256K,
-        EthCrypto.cipher.parse(cipher)
-      );
+        EthCrypto.cipher.parse(cipher),
+      )
 
-      return data;
+      return data
     }
     const { did, issuer } = await didManager.create3IDWeb3(
       address,
       ES256k.keyFromPrivate(ks.keypairs.ES256K),
       web3,
-      options.registry
+      options.registry,
     )
 
     return ({
       did,
-      secureMessage:{
+      secureMessage: {
         encrypt,
-        decrypt
+        decrypt,
       },
       publicKey: ES256k.keyFromPrivate(ks.keypairs.ES256K).getPublic(),
       issuer,
@@ -580,6 +580,8 @@ export class Wallet {
     return ethers.Wallet.createRandom().mnemonic
   }
 
+  public setActiveWalletId(id: string) {}
+
   public async open(id: string) {
     this.id = id
     this.onRequestPassphraseSubscriber.next({ type: 'wallet' })
@@ -641,5 +643,47 @@ export class Wallet {
       ethers.utils.HDNode.fromMnemonic(this.mnemonic).privateKey,
     )
     return keypair
+  }
+
+  keygen(alg: AlgorithmType) {
+    if (alg === AlgorithmType.ED25519) {
+      return this.getEd25519()
+    } else {
+      return this.getES256K()
+    }
+  }
+
+  /**
+   * Sets a keystore index, if keystore is diff, then clears lock (lock set to false)
+   * @param id
+   */
+  async setCurrent(account: string, lock: boolean) {
+    const templ = {
+      _id: 'xdv:account:current',
+      id: account,
+
+      isActive: true,
+      isLocked: true,
+      timestamp: new Date(),
+    } as Account
+    try {
+      let ref: Account = await this.db.get('xdv:account:current')
+      if (account !== ref.id) {
+        // if diff, then clear lock=false
+        ref = await this.db.put({
+          _id: 'xdv:account:current',
+          id: account,
+          _rev: ref._rev,
+        })
+      }
+      // @ts-ignore
+      templ._rev = ref._rev
+      if (lock !== undefined) {
+        templ.isLocked = lock
+      }
+      return this.db.put(templ)
+    } catch (e) {
+      return this.db.put(templ)
+    }
   }
 }
