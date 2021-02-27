@@ -62,6 +62,14 @@ export interface KeystoreDbModel {
   publicKeys?: any
 }
 
+export interface ICreateOrLoadWalletProps {
+  walletId?: string
+  passphrase: string
+  registry?: string
+  rpcUrl?: string
+  mnemonic?: string
+}
+
 export interface KeyStoreModel {
   ES256K: any
   P256: any
@@ -119,17 +127,17 @@ export class Wallet {
    * Creates an universal wallet for ES256K
    * @param options { passphrase, walletid, registry, rpcUrl }
    */
-  static async createES256K(options: any) {
+  static async createES256K(options: ICreateOrLoadWalletProps) {
     let wallet = new Wallet()
     let ks
 
-    if (options.passphrase && options.walletid) {
+    if (options.passphrase && options.walletId) {
       wallet.db.open(options.passphrase)
-      ks = await wallet.db.get(options.walletid)
+      ks = await wallet.db.get(options.walletId)
 
       //open an existing wallet
-    } else if (options.passphrase && !options.walletid) {
-      wallet = await wallet.createWallet(options.passphrase)
+    } else if (options.passphrase && !options.walletId) {
+      wallet = await wallet.createWallet(options.passphrase, options)
       ks = await wallet.db.get(wallet.id)
     }
     const kp = new ec('secp256k1')
@@ -180,16 +188,16 @@ export class Wallet {
    * @param nodeurl EVM Node
    * @param options { passphrase, walletid }
    */
-  static async create3IDEd25519(options: any) {
+  static async create3IDEd25519(options: ICreateOrLoadWalletProps) {
     let wallet = new Wallet()
     let ks
 
-    if (options.passphrase && options.walletid) {
+    if (options.passphrase && options.walletId) {
       wallet.db.open(options.passphrase)
-      ks = await wallet.db.get(options.walletid)
+      ks = await wallet.db.get(options.walletId)
 
       //open an existing wallet
-    } else if (options.passphrase && !options.walletid) {
+    } else if (options.passphrase && !options.walletId) {
       wallet = await wallet.createWallet(options.passphrase)
       ks = await wallet.db.get(wallet.id)
     }
@@ -212,19 +220,19 @@ export class Wallet {
    * Creates an universal wallet  for Web3 Providers
    * @param options { passphrase, walletid, registry, rpcUrl }
    */
-  static async createWeb3Provider(options: any) {
+  static async createWeb3Provider(options: ICreateOrLoadWalletProps) {
     //Options will have 2 variables (wallet id and passphrase)
     let web3
     let wallet = new Wallet()
     let ks
 
-    if (options.passphrase && options.walletid) {
+    if (options.passphrase && options.walletId) {
       wallet.db.open(options.passphrase)
       web3 = new Web3(options.rpcUrl)
-      ks = await wallet.db.get(options.walletid)
+      ks = await wallet.db.get(options.walletId)
 
       //open an existing wallet
-    } else if (options.passphrase && !options.walletid) {
+    } else if (options.passphrase && !options.walletId) {
       wallet = await wallet.createWallet(options.passphrase)
       web3 = new Web3(options.rpcUrl)
       ks = await wallet.db.get(wallet.id)
