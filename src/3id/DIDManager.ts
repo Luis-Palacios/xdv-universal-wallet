@@ -98,4 +98,30 @@ export class DIDManager {
       issuer
     } as DIDContext
   }
+
+  /**
+   * Create 3ID Web3 External
+   * using XDV
+   * @param address address
+   * @param ecKeyPair ECDSA key pair
+   * @param web3provider Web3 Provider
+   */
+  async create3IDWeb3External(
+    web3provider: any,
+    address: string,
+  ): Promise<DIDContext> {
+    const threeid = new ThreeIdConnect()
+    const authProvider = new EthereumAuthProvider(web3provider, address)
+    await threeid.connect(authProvider)
+    
+    const did = new DID({
+      provider: (await threeid.getDidProvider()) as any,
+      resolver: KeyResolver.getResolver(),
+    } as unknown)
+
+    return {
+      did,
+      issuer: null
+    } as DIDContext
+  }
 }
