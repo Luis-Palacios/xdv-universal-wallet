@@ -31,4 +31,12 @@ export declare class DIDManager {
      * @param web3provider Web3 Provider
      */
     create3IDWeb3(address: any, ecKeyPair: ec.KeyPair, web3provider: any, registry: string): Promise<DIDContext>;
+    /**
+     * Create 3ID Web3 External
+     * using XDV
+     * @param address address
+     * @param ecKeyPair ECDSA key pair
+     * @param web3provider Web3 Provider
+     */
+    create3IDWeb3External(web3provider: any, address: string): Promise<DIDContext>;
 }

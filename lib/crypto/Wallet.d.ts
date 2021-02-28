@@ -33,18 +33,27 @@ export interface XDVUniversalProvider {
     address?: string;
     publicKey: any;
 }
-export interface KeystoreDbModel {
-    _id: any;
-    keypairs: KeyStoreModel;
-    keystoreSeed: any;
-    mnemonic: string;
-    keypairExports: KeyStoreModel;
-    publicKeys?: any;
+export interface ICreateOrLoadWalletProps {
+    walletId?: string;
+    passphrase: string;
+    registry?: string;
+    rpcUrl?: string;
+    mnemonic?: string;
+    accountName: string;
 }
 export interface KeyStoreModel {
     ES256K: any;
     P256: any;
     ED25519: any;
+}
+export interface KeystoreDbModel {
+    _id: any;
+    keypairs: KeyStoreModel;
+    keystoreSeed: any;
+    mnemonic: string;
+    path?: string;
+    keypairExports: KeyStoreModel;
+    publicKeys?: any;
 }
 export declare class KeyStore implements KeyStoreModel {
     ED25519: any;
@@ -52,14 +61,23 @@ export declare class KeyStore implements KeyStoreModel {
     P256: any;
     constructor();
 }
-export declare class Wallet {
+export interface Account {
+    _id: string;
     id: string;
+    timestamp: Date;
+    isActive: boolean;
+    isLocked: boolean;
+    description: string;
+    attributes: string[];
+    currentKeystoreId: string;
+    keystores: KeystoreDbModel[];
+}
+export declare class Wallet {
+    private readonly DB_NAME;
     onRequestPassphraseSubscriber: Subject<any>;
     onRequestPassphraseWallet: Subject<any>;
     onSignExternal: Subject<any>;
-    private db;
-    ethersWallet: any;
-    mnemonic: any;
+    protected db: any;
     accepted: any;
     constructor();
     /**
@@ -73,18 +91,18 @@ export declare class Wallet {
      * Creates an universal wallet for ES256K
      * @param options { passphrase, walletid, registry, rpcUrl }
      */
-    static createES256K(options: any): Promise<XDVUniversalProvider>;
+    static createES256K(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
     /**
-   * Creates an universal wallet for Ed25519
-   * @param nodeurl EVM Node
-   * @param options { passphrase, walletid }
-   */
-    static create3IDEd25519(options: any): Promise<XDVUniversalProvider>;
+     * Creates an universal wallet for Ed25519
+     * @param nodeurl EVM Node
+     * @param options { passphrase, walletid }
+     */
+    static create3IDEd25519(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
     /**
      * Creates an universal wallet  for Web3 Providers
      * @param options { passphrase, walletid, registry, rpcUrl }
      */
-    static createWeb3Provider(options: any): Promise<XDVUniversalProvider>;
+    static createWeb3Provider(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
     /**
      * Sets a public key in storage
      * @param id
@@ -100,9 +118,18 @@ export declare class Wallet {
      * @param value
      */
     setImportKey(id: string, value: object): Promise<void>;
-    createWallet(password: string, options?: any): Promise<this>;
-    getPrivateKey(algorithm: AlgorithmTypeString): Promise<ec.KeyPair | eddsa.KeyPair>;
-    getPrivateKeyExports(algorithm: AlgorithmTypeString): Promise<any>;
+    /**
+     * Creates an account and a set of ES256K and ED25519 Wallets
+     * @param options
+     */
+    createAccount(options: ICreateOrLoadWalletProps): Promise<this>;
+    /**
+     * Adds a set of ES256K and ED25519 Wallets
+     * @param options
+     */
+    addWallet(options: ICreateOrLoadWalletProps): Promise<this>;
+    protected getPrivateKey(algorithm: AlgorithmTypeString, keystoreId: string): Promise<ec.KeyPair | eddsa.KeyPair>;
+    protected getPrivateKeyExports(algorithm: AlgorithmTypeString, keystoreId: string): Promise<any>;
     canUse(): Promise<unknown>;
     /**
      * Signs with selected algorithm
@@ -110,14 +137,14 @@ export declare class Wallet {
      * @param payload Payload as buffer
      * @param options options
      */
-    sign(algorithm: AlgorithmTypeString, payload: Buffer): Promise<[Error, any?]>;
+    sign(algorithm: AlgorithmTypeString, keystoreId: string, payload: Buffer): Promise<[Error, any?]>;
     /**
      * Signs a JWT for single recipient
      * @param algorithm Algorithm
      * @param payload Payload as buffer
      * @param options options
      */
-    signJWT(algorithm: AlgorithmTypeString, payload: any, options: any): Promise<[Error, any?]>;
+    signJWT(algorithm: AlgorithmTypeString, keystoreId: string, payload: any, options: any): Promise<[Error, any?]>;
     signJWTFromPublic(publicKey: any, payload: any, options: any): Promise<[Error, any?]>;
     /**
      * Encrypts JWE
@@ -126,32 +153,30 @@ export declare class Wallet {
      * @param overrideWithKey Uses this key instead of current wallet key
      *
      */
-    encryptJWE(algorithm: AlgorithmTypeString, payload: any, overrideWithKey: any): Promise<[Error, any?]>;
-    decryptJWE(algorithm: AlgorithmTypeString, payload: any): Promise<[Error, any?]>;
-    /**
-     * Encrypts JWE with multiple keys
-     * @param algorithm
-     * @param payload
-     */
-    encryptMultipleJWE(keys: any[], algorithm: AlgorithmTypeString, payload: any): Promise<[Error, any?]>;
+    encryptJWE(algorithm: AlgorithmTypeString, keystoreId: string, payload: any, overrideWithKey: any): Promise<[Error, any?]>;
+    decryptJWE(algorithm: AlgorithmTypeString, keystoreId: string, payload: any): Promise<[Error, any?]>;
     /**
      * Generates a mnemonic
      */
     static generateMnemonic(): ethers.utils.Mnemonic;
-    open(id: string): Promise<void>;
-    /**
-     * Derives a new child Wallet
-     */
-    deriveChild(sequence: number, derivation?: string): any;
-    get path(): any;
-    get address(): any;
+    unlockKeystore(id: string): Promise<void>;
     /**
      * Derives a wallet from a path
      */
-    deriveFromPath(path: string): any;
+    deriveFromPath(mnemonic: string, path: string): any;
     /**
      * Gets EdDSA key pair
      */
-    getEd25519(): eddsa.KeyPair;
-    getES256K(): ec.KeyPair;
+    getEd25519(mnemonic: string): eddsa.KeyPair;
+    getES256K(mnemonic: string): ec.KeyPair;
+    /**
+     * Gets keystore from session db
+     */
+    getAccount(): Promise<Account>;
+    /**
+     * Sets a keystore index, if keystore is diff, then clears lock (lock set to false)
+     * @param id
+     */
+    setAccountLock(lock: boolean): Promise<any>;
+    setCurrentKeystore(id: string): Promise<any>;
 }

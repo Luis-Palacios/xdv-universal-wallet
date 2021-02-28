@@ -137,14 +137,19 @@ export class Wallet {
   static async createES256K(options: ICreateOrLoadWalletProps) {
     let wallet = new Wallet()
     let ks
+    const account = await wallet.getAccount()
 
-    if (options.passphrase && options.walletId) {
-      wallet.db.open(options.passphrase)
-      ks = await wallet.db.get(options.walletId)
-
-      //open an existing wallet
+    if (account && options.walletId) {
+      await wallet.unlockKeystore(options.walletId)
+      ks = (await wallet.getAccount()).keystores.find(
+        (w) => w._id === options.walletId,
+      )
     } else if (options.passphrase && !options.walletId) {
-      wallet = await wallet.createAccount(options)
+      if (account) {
+        wallet = await wallet.addWallet(options)
+      } else {
+        wallet = await wallet.createAccount(options)
+      }
       ks = (await wallet.getAccount()).keystores.find(
         (w) => w._id === options.walletId,
       )
@@ -199,12 +204,13 @@ export class Wallet {
   static async create3IDEd25519(options: ICreateOrLoadWalletProps) {
     let wallet = new Wallet()
     let ks
+    const account = await wallet.getAccount()
 
-    if (options.passphrase && options.walletId) {
-      wallet.db.open(options.passphrase)
-      ks = await wallet.db.get(options.walletId)
-
-      //open an existing wallet
+    if (account && options.walletId) {
+      await wallet.unlockKeystore(options.walletId)
+      ks = (await wallet.getAccount()).keystores.find(
+        (w) => w._id === options.walletId,
+      )
     } else if (options.passphrase && !options.walletId) {
       wallet = await wallet.createAccount(options)
       ks = (await wallet.getAccount()).keystores.find(
@@ -233,12 +239,14 @@ export class Wallet {
     let web3
     let wallet = new Wallet()
     let ks
+    const account = await wallet.getAccount()
 
     if (options.passphrase && options.walletId) {
-      wallet.db.open(options.passphrase)
+      await wallet.unlockKeystore(options.walletId)
       web3 = new Web3(options.rpcUrl)
-      ks = await wallet.db.get(options.walletId)
-
+      ks = (await wallet.getAccount()).keystores.find(
+        (w) => w._id === options.walletId,
+      )
       //open an existing wallet
     } else if (options.passphrase && !options.walletId) {
       wallet = await wallet.createAccount(options)
@@ -342,17 +350,15 @@ export class Wallet {
   public async createAccount(options: ICreateOrLoadWalletProps) {
     let a
     try {
-       a = await this.db.get('xdv:account')
-
+      a = await this.db.get('xdv:account')
     } catch (e) {
       // continue
     }
 
-
     if (a && a._rev)
-    throw new Error(
-      'Account already created, please use addWallet to create new keys',
-    )
+      throw new Error(
+        'Account already created, please use addWallet to create new keys',
+      )
 
     let id = Buffer.from(ethers.utils.randomBytes(100)).toString('base64')
     if (options.walletId) {
