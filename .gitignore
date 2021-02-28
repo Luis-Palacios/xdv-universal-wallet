@@ -1,4 +1,4 @@
-xdv:web:wallet/*
+xdv:*:wallet/*
 # Logs
 logs
 *.log

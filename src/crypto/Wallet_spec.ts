@@ -21,9 +21,11 @@ describe('universal wallet - wallet and 3ID', function () {
   before(async function () {})
 
   it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {
+   
     const result = await Wallet.createWeb3Provider({
       passphrase: '1234',
       rpcUrl: url,
+      accountName:''
     })
     expect(result.id.length).to.be.above(0)
   })
