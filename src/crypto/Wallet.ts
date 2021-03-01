@@ -114,6 +114,27 @@ export class Wallet {
     PouchDB.plugin(require('crypto-pouch'))
   }
 
+  // async initialize(passphrase: string) {
+  //   let accountInstance: Account
+  //   try {
+  //     accountInstance = await this.db.get('xdv:account')
+  //     // @ts-ignore
+  //     if (
+  //       accountInstance &&
+  //       // @ts-expect-error
+  //       accountInstance._rev 
+
+  //     ) {
+  //       console.log('unlocked')
+  //       // open
+  //       // await this.db.crypto(passphrase)
+  //     }
+  //     return true
+  //   } catch (e) {
+  //     return false
+  //   }
+  // }
+
   /**
    * Gets a public key from storage
    * @param id
@@ -134,26 +155,26 @@ export class Wallet {
    * Creates an universal wallet for ES256K
    * @param options { passphrase, walletid, registry, rpcUrl }
    */
-  static async createES256K(options: ICreateOrLoadWalletProps) {
+  async createES256K(options: ICreateOrLoadWalletProps) {
     let wallet = new Wallet()
     let ks
-    const account = await wallet.getAccount()
+    let account = await this.getAccount(options.passphrase)
 
-    if (account && options.walletId) {
-      await wallet.unlockKeystore(options.walletId)
-      ks = (await wallet.getAccount()).keystores.find(
-        (w) => w._id === options.walletId,
-      )
+    if (options.passphrase && options.walletId) {
+
+      //open an existing wallet
     } else if (options.passphrase && !options.walletId) {
-      if (account) {
+      if (account && account.keystores) {
         wallet = await wallet.addWallet(options)
       } else {
         wallet = await wallet.createAccount(options)
       }
-      ks = (await wallet.getAccount()).keystores.find(
-        (w) => w._id === options.walletId,
-      )
+      account = await this.getAccount(options.passphrase)
+      options.walletId = account.currentKeystoreId;
+
     }
+    ks = account.keystores.find((w) => w._id === options.walletId)
+
     const kp = new ec('secp256k1')
     const kpInstance = kp.keyFromPrivate(ks.keypairs.ES256K) as ec.KeyPair
     const didManager = new DIDManager()
@@ -201,22 +222,27 @@ export class Wallet {
    * @param nodeurl EVM Node
    * @param options { passphrase, walletid }
    */
-  static async create3IDEd25519(options: ICreateOrLoadWalletProps) {
+  async createEd25519(options: ICreateOrLoadWalletProps) {
     let wallet = new Wallet()
     let ks
-    const account = await wallet.getAccount()
+    let account = await this.getAccount(options.passphrase)
 
-    if (account && options.walletId) {
-      await wallet.unlockKeystore(options.walletId)
-      ks = (await wallet.getAccount()).keystores.find(
-        (w) => w._id === options.walletId,
-      )
+    if (options.passphrase && options.walletId) {
+
+      //open an existing wallet
     } else if (options.passphrase && !options.walletId) {
-      wallet = await wallet.createAccount(options)
-      ks = (await wallet.getAccount()).keystores.find(
-        (w) => w._id === options.walletId,
-      )
+      if (account && account.keystores) {
+        wallet = await wallet.addWallet(options)
+      } else {
+        wallet = await wallet.createAccount(options)
+      }
+      account = await this.getAccount(options.passphrase)
+      options.walletId = account.currentKeystoreId;
+
     }
+    ks = account.keystores.find((w) => w._id === options.walletId)
+
+
     const kp = new eddsa('ed25519')
     const kpInstance = kp.keyFromSecret(ks.keypairs.ED25519) as eddsa.KeyPair
     const didManager = new DIDManager()
@@ -234,27 +260,28 @@ export class Wallet {
    * Creates an universal wallet  for Web3 Providers
    * @param options { passphrase, walletid, registry, rpcUrl }
    */
-  static async createWeb3Provider(options: ICreateOrLoadWalletProps) {
+  async createWeb3Provider(options: ICreateOrLoadWalletProps) {
     //Options will have 2 variables (wallet id and passphrase)
     let web3
     let wallet = new Wallet()
     let ks
-    const account = await wallet.getAccount()
+    let account = await this.getAccount(options.passphrase)
 
     if (options.passphrase && options.walletId) {
-      await wallet.unlockKeystore(options.walletId)
       web3 = new Web3(options.rpcUrl)
-      ks = (await wallet.getAccount()).keystores.find(
-        (w) => w._id === options.walletId,
-      )
       //open an existing wallet
     } else if (options.passphrase && !options.walletId) {
-      wallet = await wallet.createAccount(options)
-      ks = (await wallet.getAccount()).keystores.find(
-        (w) => w._id === options.walletId,
-      )
+      if (account && account.keystores) {
+        wallet = await wallet.addWallet(options)
+      } else {
+        wallet = await wallet.createAccount(options)
+      }
+      account = await this.getAccount(options.passphrase)
+      options.walletId = account.currentKeystoreId;
       web3 = new Web3(options.rpcUrl)
     }
+    ks = account.keystores.find((w) => w._id === options.walletId)
+
     const privateKey = '0x' + ks.keypairs.ES256K
     web3.eth.accounts.wallet.add(privateKey)
     const address = web3.eth.accounts.privateKeyToAccount(privateKey).address
@@ -323,24 +350,6 @@ export class Wallet {
         key: value,
       })
     }
-  }
-
-  public async getImportKey(id: string) {
-    const content = await this.db.get(id)
-    return content
-  }
-
-  /**
-   * Sets a public key in storage
-   * @param id
-   * @param algorithm
-   * @param value
-   */
-  public async setImportKey(id: string, value: object) {
-    await this.db.put({
-      _id: id,
-      key: value,
-    })
   }
 
   /**
@@ -420,7 +429,6 @@ export class Wallet {
       id: new Date().getTime().toFixed(),
     } as Account
 
-    // await this.db.crypto(options.passphrase)
     await this.db.put(account)
 
     return this
@@ -434,6 +442,12 @@ export class Wallet {
     let account: Account
     try {
       account = await this.db.get('xdv:account')
+      // @ts-ignore
+      if (account && account._rev && !account.isLocked) {
+        // open
+        await this.db.crypto(options.passphrase)
+        account = await this.db.get('xdv:account')
+      }
     } catch (e) {
       throw new Error('No account created')
     }
@@ -491,12 +505,16 @@ export class Wallet {
     account.isLocked = true
     account.currentKeystoreId = id
 
-    await this.db.crypto(options.passphrase)
     await this.db.put(account)
 
     return this
   }
 
+  /**
+   * Get private key as elliptic keypair
+   * @param algorithm
+   * @param keystoreId
+   */
   protected async getPrivateKey(
     algorithm: AlgorithmTypeString,
     keystoreId: string,
@@ -517,6 +535,11 @@ export class Wallet {
     }
   }
 
+  /**
+   * Get private key exports
+   * @param algorithm
+   * @param keystoreId
+   */
   protected async getPrivateKeyExports(
     algorithm: AlgorithmTypeString,
     keystoreId: string,
@@ -601,6 +624,12 @@ export class Wallet {
     return [new Error('invalid_passphrase')]
   }
 
+  /**
+   * Signs JWT using public keys
+   * @param publicKey
+   * @param payload
+   * @param options
+   */
   public async signJWTFromPublic(
     publicKey: any,
     payload: any,
@@ -650,6 +679,12 @@ export class Wallet {
     return [new Error('invalid_passphrase')]
   }
 
+  /**
+   * Decript JWE
+   * @param algorithm
+   * @param keystoreId
+   * @param payload
+   */
   public async decryptJWE(
     algorithm: AlgorithmTypeString,
     keystoreId: string,
@@ -681,14 +716,29 @@ export class Wallet {
     return ethers.Wallet.createRandom().mnemonic
   }
 
-  public async unlockKeystore(id: string) {
+  /**
+   * Unlock account
+   * @param id keystore id
+   */
+  public async unlockAccount(id: string) {
+    let accountInstance
     this.onRequestPassphraseSubscriber.next({ type: 'wallet', value: id })
     this.onRequestPassphraseWallet.subscribe(async (p) => {
       if (p.type !== 'ui') {
         this.accepted = p.accepted
       } else {
         try {
-          this.db.crypto(p.passphrase)
+          accountInstance = await this.db.get('xdv:account')
+          if (
+            accountInstance &&
+            accountInstance._rev &&
+            !accountInstance.isLocked
+          ) {
+            // open
+            await this.db.crypto(p.passphrase)
+            accountInstance = await this.db.get('xdv:account')
+          }
+
           this.onRequestPassphraseSubscriber.next({ type: 'done', value: id })
         } catch (e) {
           this.onRequestPassphraseSubscriber.next({ type: 'error', error: e })
@@ -716,6 +766,10 @@ export class Wallet {
     return keypair
   }
 
+  /**
+   * Gets ECDSA key pair
+   * @param mnemonic
+   */
   public getES256K(mnemonic: string): ec.KeyPair {
     const ES256k = new ec('secp256k1')
     const keypair = ES256k.keyFromPrivate(
@@ -727,9 +781,23 @@ export class Wallet {
   /**
    * Gets keystore from session db
    */
-  async getAccount(): Promise<Account> {
+  async getAccount(passphrase?: string): Promise<Account> {
     try {
-      const item = await this.db.get('xdv:account')
+      const wallet = new Wallet()
+      let item = await wallet.db.get('xdv:account')
+      if (passphrase) {
+        if (
+          item &&
+          item._rev &&
+          !item.keystores
+        ) {
+          // open
+          await this.db.crypto(passphrase)
+          item = await this.db.get('xdv:account')
+          console.log(item)
+        }
+      } 
+
       return item as Account
     } catch (e) {
       return null
@@ -737,27 +805,59 @@ export class Wallet {
   }
 
   /**
-   * Sets a keystore index, if keystore is diff, then clears lock (lock set to false)
+   * Sets account lock
+   * @param passphrase
    * @param id
    */
-  async setAccountLock(lock: boolean) {
+  async setAccountLock(passphrase: string, lock: boolean) {
     let accountInstance: Account
     try {
       accountInstance = await this.db.get('xdv:account')
+      
+      if (
+        accountInstance &&
+        // @ts-ignore
+        accountInstance._rev &&
+        !accountInstance.isLocked
+      ) {
+        // open
+        await this.db.crypto(passphrase)
+        accountInstance = await this.db.get('xdv:account')
+        console.log(accountInstance)
+      }
       accountInstance.isLocked = lock
       return this.db.put(accountInstance)
     } catch (e) {
       throw e
     }
   }
-  async setCurrentKeystore(id: string) {
+
+  /**
+   * Sets current keystore
+   * @param passphrase
+   * @param id
+   *
+   */
+  async setCurrentKeystore(passphrase: string, id: string) {
     let accountInstance: Account
     try {
       accountInstance = await this.db.get('xdv:account')
+      // @ts-ignore
+      if (
+        accountInstance &&
+        // @ts-expect-error
+        accountInstance._rev &&
+        !accountInstance.isLocked
+      ) {
+        // open
+        await this.db.crypto(passphrase)
+        accountInstance = await this.db.get('xdv:account')
+      }
       accountInstance.currentKeystoreId = id
       return this.db.put(accountInstance)
     } catch (e) {
       throw e
     }
   }
+
 }

@@ -13,17 +13,18 @@ import * as privateBox from 'private-box'
 import { W3CVerifiedCredential } from '../3id/W3CVerifiedCredential'
 
 let localStorage = {}
+let id = null
+let url = 'https://ropsten.infura.io/v3/79110f2241304162b087759b5c49cf99'
 
 describe('universal wallet - wallet and 3ID', function () {
   let selectedWallet: Wallet
-  let id = null
-  let url = 'https://ropsten.infura.io/v3/79110f2241304162b087759b5c49cf99'
   before(async function () {})
 
-  it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {
-   
-    const result = await Wallet.createWeb3Provider({
-      passphrase: '1234',
+  it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {  
+    const wallet = new Wallet()
+    const passphrase = '1234'
+    const result = await wallet.createWeb3Provider({
+      passphrase,
       rpcUrl: url,
       accountName:''
     })
@@ -31,29 +32,58 @@ describe('universal wallet - wallet and 3ID', function () {
   })
 
   it('when calling createWeb3Provider and create3IDWeb3, should return a web3 instance and wallet id', async function () {
-    const result = await Wallet.createWeb3Provider({
+    const wallet = new Wallet()
+    const passphrase = '1234'
+    const result = await wallet.createWeb3Provider({
       passphrase: '1234',
       rpcUrl: url,
+      accountName: ''
     })
     id = result.id
     expect(result.did.id.length).to.be.above(0)
   })
-
   it('when calling createES256K with an existing id, should return a web3 instance and wallet id', async function () {
-    const result = await Wallet.createES256K({
+    const wallet = new Wallet()
+    const passphrase = '1234'
+    
+    const result = await wallet.createES256K({
       passphrase: '1234',
       rpcUrl: url,
-      walletid: id,
+      walletId: id,
       registry: '',
+      accountName: ''
+    })
+    await wallet.setAccountLock(passphrase, true)
+    let acct = await wallet.getAccount()
+    console.log(acct.keystores)
+    await wallet.setAccountLock(passphrase, false)
+    acct = await wallet.getAccount()
+    console.log(acct.keystores)
+
+    expect(result.address).equal(result.address)
+  })
+
+  it('when calling createES256K with an existing id, should return a web3 instance and wallet id', async function () {
+    const wallet = new Wallet()
+    const passphrase = '1234'
+    const result = await wallet.createES256K({
+      passphrase: '1234',
+      rpcUrl: url,
+      walletId: id,
+      registry: '',
+      accountName: ''
     })
     expect(result.address).equal(result.address)
   })
   it('when calling createES256K with an existing id and create a VC, should return a web3 instance and wallet id', async function () {
-    const result = await Wallet.createES256K({
+    const wallet = new Wallet()
+    const passphrase = '1234'
+    const result = await wallet.createES256K({
       passphrase: '1234',
       rpcUrl: url,
-      walletid: id,
+      walletId: id,
       registry: '',
+      accountName: ''
     })
 
     const vcService = new W3CVerifiedCredential()
@@ -68,8 +98,14 @@ describe('universal wallet - wallet and 3ID', function () {
   })
 
   it('when calling create3IDEd25519 , should return a did instance and wallet id', async function () {
-    const res = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456',
+    const wallet = new Wallet()
+    const passphrase = '1234'
+    const res = await wallet.createEd25519({
+      passphrase,
+      rpcUrl: url,
+      walletId: id,
+      registry: '',
+      accountName: ''      
     })
     await res.did.authenticate()
     const issuer = res.getIssuer()
@@ -83,10 +119,17 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
   before(async function () {})
 
   it('when adding a signed DID/IPLD object , should fetch and return uploaded data', async function () {
-    const did = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456',
+    const wallet = new Wallet()
+    const passphrase = '1234'
+    const did = await wallet.createEd25519({
+      passphrase,
+      rpcUrl: url,
+      walletId: id,
+      registry: '',
+      accountName: ''      
     })
-    expect(did.id.length).to.be.above(0)
+    const acct = await wallet.getAccount();
+    expect(acct.currentKeystoreId.length).to.be.above(0)
 
     const ipfsManager = new IPLDManager(did.did)
     await ipfsManager.start()
@@ -106,13 +149,18 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
   })
 
   it('when adding a signed and encrypted DID/IPLD object , should fetch and return uploaded data', async function () {
-    const did = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456',
+    const wallet = new Wallet()
+    const passphrase = '1234'
+
+
+    const did = await wallet.createEd25519({
+      passphrase,
+      accountName: ''
     })
-    const didBob = await Wallet.create3IDEd25519({
-      passphrase: 'abcdef123456!@#$%^^&*',
+    const didBob = await wallet.createEd25519({
+      passphrase,
+      accountName: ''
     })
-    expect(did.id.length).to.be.above(0)
 
     const ipfsManager = new IPLDManager(did.did)
     await ipfsManager.start()
@@ -138,11 +186,16 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
   })
 
   it('when adding a signed and encrypted DID/IPLD object , should failed decrypting if not allowed', async function () {
-    const walletProviderAlice = await Wallet.createES256K({
-      passphrase: 'abcdef123456',
+    const wallet = new Wallet()
+    const passphrase = '1234'
+
+    const walletProviderAlice = await wallet.createES256K({
+      passphrase,
+      accountName: ''
     })
-    const walletProviderBob = await Wallet.createES256K({
-      passphrase: 'abcdef123456!@#$%^^&*',
+    const walletProviderBob = await wallet.createES256K({
+      passphrase,
+      accountName: ''
     })
 
     const ipfsManager = new IPLDManager(walletProviderAlice.did)
