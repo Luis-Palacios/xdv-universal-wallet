@@ -22,7 +22,14 @@ describe('universal wallet - wallet and 3ID', function () {
 
   it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {  
     const wallet = new Wallet()
-    const passphrase = '1234'
+    const passphrase = 'qwerty123456'
+    wallet.enrollAccount({
+      passphrase,
+      accountName: 'My Wallet #1'
+    })
+    // keystores, passphrase
+
+    wallet.close();
     const result = await wallet.createWeb3Provider({
       passphrase,
       rpcUrl: url,
