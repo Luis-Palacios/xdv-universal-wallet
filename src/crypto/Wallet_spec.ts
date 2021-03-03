@@ -22,32 +22,75 @@ describe('universal wallet - wallet and 3ID', function () {
 
   it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {  
     const wallet = new Wallet()
-    const passphrase = 'qwerty123456'
-    wallet.enrollAccount({
-      passphrase,
-      accountName: 'My Wallet #1'
-    })
-    // keystores, passphrase
 
-    wallet.close();
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+
+    // Enroll account only needs to done once
+    // Returns account if already created
+    const acct = await wallet.enrollAccount({
+      passphrase,
+      accountName: 'mywallet1'
+    });
+
+    // Assert keystores length is 0, enrollAccount only creates an account
+    if (acct.get('keystores').length === 0) {
+      expect(acct.get('keystores').length).equal(0);
+    }
+
+    // add wallet with no mnemonic
+    await wallet.addWallet();
+
+    // Assert keystores exists
+    if (acct.get('keystores').length > 0) {
+      expect(acct.get('keystores').length).greaterThan(0);
+    }
+
+    // Create 3ID enabled Web3 provider
     const result = await wallet.createWeb3Provider({
       passphrase,
       rpcUrl: url,
       accountName:''
     })
+    
     expect(result.id.length).to.be.above(0)
+    // wallet.close();
   })
 
   it('when calling createWeb3Provider and create3IDWeb3, should return a web3 instance and wallet id', async function () {
     const wallet = new Wallet()
-    const passphrase = '1234'
-    const result = await wallet.createWeb3Provider({
-      passphrase: '1234',
-      rpcUrl: url,
-      accountName: ''
-    })
-    id = result.id
-    expect(result.did.id.length).to.be.above(0)
+
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+
+    // Enroll account only needs to done once
+    // Returns account if created
+    let acct = await wallet.enrollAccount({
+      passphrase,
+      accountName: 'mywallet1'
+    });
+
+    if (!acct) {
+      acct = await wallet.getAccount()
+      console.log(acct)
+
+    }
+
+    // Assert keystores length is 0, enrollAccount only creates an account
+    if (acct.get('keystores').length === 0) {
+      expect(acct.get('keystores').length).equal(0);
+    }
+
+    // add wallet with no mnemonic
+    const walletId = await wallet.addWallet();
+
+    // Assert keystores exists
+    if (acct.get('keystores').length > 0) {
+      expect(acct.get('keystores').length).greaterThan(0);
+    }
+    id = walletId
+
+    expect(id.length).to.be.above(0)
   })
   it('when calling createES256K with an existing id, should return a web3 instance and wallet id', async function () {
     const wallet = new Wallet()

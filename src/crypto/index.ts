@@ -6,3 +6,4 @@ export * from './JWTService';
 export * from './KeyConvert';
 export * from './LDCryptoTypes';
 export * from './Wallet';
+export * from './UniversalWallet'

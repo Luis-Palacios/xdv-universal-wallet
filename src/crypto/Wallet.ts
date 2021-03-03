@@ -8,7 +8,7 @@ import { JWE, JWK } from 'node-jose'
 import { JWTService } from './JWTService'
 import { KeyConvert } from './KeyConvert'
 import { LDCryptoTypes } from './LDCryptoTypes'
-import { from, Subject } from 'rxjs'
+import { from, Subject, throwError } from 'rxjs'
 import { mnemonicToSeed } from 'ethers/lib/utils'
 import Web3 from 'web3'
 import { DIDManager } from '../3id/DIDManager'
@@ -17,14 +17,13 @@ import * as ed from 'noble-ed25519'
 import { toEthereumAddress } from 'did-jwt'
 import EthCrypto from 'eth-crypto'
 import { stringToBytes } from 'did-jwt/lib/util'
-import {
-  addRxPlugin,
-  createRxDatabase,
-  RxDatabase,
-  RxDocument,
-  RxQuery,
-} from 'rxdb'
+import { RxDatabase, RxDocument, RxQuery, RxDocumentBase } from 'rxdb'
+
+// import modules
+import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode'
+import { createRxDatabase, addRxPlugin } from 'rxdb/plugins/core'
 import moment from 'moment'
+import { EthereumAuthProvider } from '3id-connect'
 
 export type AlgorithmTypeString = keyof typeof AlgorithmType
 export enum AlgorithmType {
@@ -63,11 +62,11 @@ export interface XDVUniversalProvider {
 
 export interface ICreateOrLoadWalletProps {
   walletId?: string
-  passphrase: string
+  passphrase?: string
   registry?: string
   rpcUrl?: string
   mnemonic?: string
-  accountName: string
+  accountName?: string
 }
 
 export interface KeyStoreModel {
@@ -79,9 +78,8 @@ export interface KeyStoreModel {
 export interface KeystoreDbModel {
   walletId: string
   keypairs: KeyStoreModel
-  keystoreSeed: any
-  mnemonic: string
   path?: string
+  mnemonic: string
   keypairExports: KeyStoreModel
   publicKeys?: any
 }
@@ -162,6 +160,13 @@ export const XDVWalletSchema = {
   encrypted: ['keystores'],
 }
 
+import * as PouchdbAdapterIdb from 'pouchdb-adapter-idb'
+import * as PouchdbAdapterMemory from 'pouchdb-adapter-memory'
+import { RxDBEncryptionPlugin } from 'rxdb/plugins/encryption'
+import { RxDBValidatePlugin } from 'rxdb/plugins/validate'
+import { RxDBUpdatePlugin } from 'rxdb/plugins/update'
+addRxPlugin(RxDBDevModePlugin)
+
 /**
  * XDV Wallet for DID and VC use cases
  */
@@ -175,9 +180,23 @@ export class Wallet {
   }>()
   protected db: RxDatabase
   accepted: any
+  isWeb = false
 
-  constructor() {
-    addRxPlugin(require('pouchdb-adapter-idb'))
+  /**
+   * Creates a new Wallet
+   * @param param0 isWeb, true if used by browser otherwise false
+   */
+  constructor({ isWeb } = { isWeb: false }) {
+    addRxPlugin(RxDBUpdatePlugin)
+    addRxPlugin(RxDBValidatePlugin)
+    addRxPlugin(RxDBEncryptionPlugin)
+
+    if (isWeb) {
+      addRxPlugin(PouchdbAdapterIdb)
+    } else {
+      addRxPlugin(PouchdbAdapterMemory)
+    }
+    this.isWeb = isWeb
   }
 
   /**
@@ -186,13 +205,16 @@ export class Wallet {
    */
   async enrollAccount(options: ICreateOrLoadWalletProps) {
     try {
+      
       this.db = await createRxDatabase({
         name: options.accountName,
-        adapter: 'idb',
+        adapter: this.isWeb ? 'idb' : 'memory',
         multiInstance: true,
         password: options.passphrase,
+        ignoreDuplicate: true
       })
     } catch (e) {
+      console.log(e)
       // already exists
       return false
     }
@@ -210,10 +232,14 @@ export class Wallet {
       isLocked: false,
       description: options.accountName,
       attributes: [],
-      currentKeystoreId: null,
+      currentKeystoreId: '',
       keystores: [],
     }
     return await accounts.insert(accountModel)
+  }
+
+  async close() {
+    await this.db.destroy()
   }
 
   // /**
@@ -239,20 +265,12 @@ export class Wallet {
   async createES256K(options: ICreateOrLoadWalletProps) {
     let wallet = new Wallet()
     let ks
-    let account = await this.getAccount(options.passphrase)
+    let account = await this.getAccount()
 
-    if (options.passphrase && options.walletId) {
-      //open an existing wallet
-    } else if (options.passphrase && !options.walletId) {
-      if (account && account.keystores) {
-        wallet = await wallet.addWallet(options)
-      } else {
-        wallet = await wallet.createAccount(options)
-      }
-      account = await this.getAccount(options.passphrase)
-      options.walletId = account.currentKeystoreId
-    }
-    ks = account.keystores.find((w) => w._id === options.walletId)
+
+    //open an existing wallet
+    ks = account.get('keystores').find((w) => w._id === options.walletId)
+    if (!ks) throw new Error('No wallet selected')
 
     const kp = new ec('secp256k1')
     const kpInstance = kp.keyFromPrivate(ks.keypairs.ES256K) as ec.KeyPair
@@ -306,18 +324,9 @@ export class Wallet {
     let ks
     let account = await this.getAccount(options.passphrase)
 
-    if (options.passphrase && options.walletId) {
-      //open an existing wallet
-    } else if (options.passphrase && !options.walletId) {
-      if (account && account.keystores) {
-        wallet = await wallet.addWallet(options)
-      } else {
-        wallet = await wallet.createAccount(options)
-      }
-      account = await this.getAccount(options.passphrase)
-      options.walletId = account.currentKeystoreId
-    }
-    ks = account.keystores.find((w) => w._id === options.walletId)
+    //open an existing wallet
+    ks = account.get('keystores').find((w) => w._id === options.walletId)
+    if (!ks) throw new Error('No wallet selected')
 
     const kp = new eddsa('ed25519')
     const kpInstance = kp.keyFromSecret(ks.keypairs.ED25519) as eddsa.KeyPair
@@ -339,24 +348,13 @@ export class Wallet {
   async createWeb3Provider(options: ICreateOrLoadWalletProps) {
     //Options will have 2 variables (wallet id and passphrase)
     let web3
-    let wallet = new Wallet()
     let ks
-    let account = await this.getAccount(options.passphrase)
+    let account = await this.getAccount()
 
-    if (options.passphrase && options.walletId) {
-      web3 = new Web3(options.rpcUrl)
-      //open an existing wallet
-    } else if (options.passphrase && !options.walletId) {
-      if (account && account.keystores) {
-        wallet = await wallet.addWallet(options)
-      } else {
-        wallet = await wallet.createAccount(options)
-      }
-      account = await this.getAccount(options.passphrase)
-      options.walletId = account.currentKeystoreId
-      web3 = new Web3(options.rpcUrl)
-    }
-    ks = account.keystores.find((w) => w._id === options.walletId)
+    web3 = new Web3(options.rpcUrl)
+    //open an existing wallet
+    ks = account.get('keystores').find((w) => w._id === options.walletId)
+    if (!ks) throw new Error('No wallet selected')
 
     const privateKey = '0x' + ks.keypairs.ES256K
     web3.eth.accounts.wallet.add(privateKey)
@@ -402,55 +400,42 @@ export class Wallet {
     } as unknown) as XDVUniversalProvider
   }
 
-  /**
-   * Sets a public key in storage
-   * @param id
-   * @param algorithm
-   * @param value
-   */
-  public async setPublicKey(
-    id: string,
-    algorithm: AlgorithmTypeString,
-    value: object,
-  ) {
-    if (
-      [
-        AlgorithmType.P256_JWK_PUBLIC,
-        AlgorithmType.RSA_JWK_PUBLIC,
-        AlgorithmType.ED25519_JWK_PUBLIC,
-        AlgorithmType.ES256K_JWK_PUBLIC,
-      ].includes(AlgorithmType[algorithm])
-    ) {
-      await this.db.put({
-        _id: id,
-        key: value,
-      })
-    }
-  }
-
-  
+  // /**
+  //  * Sets a public key in storage
+  //  * @param id
+  //  * @param algorithm
+  //  * @param value
+  //  */
+  // public async setPublicKey(
+  //   id: string,
+  //   algorithm: AlgorithmTypeString,
+  //   value: object,
+  // ) {
+  //   if (
+  //     [
+  //       AlgorithmType.P256_JWK_PUBLIC,
+  //       AlgorithmType.RSA_JWK_PUBLIC,
+  //       AlgorithmType.ED25519_JWK_PUBLIC,
+  //       AlgorithmType.ES256K_JWK_PUBLIC,
+  //     ].includes(AlgorithmType[algorithm])
+  //   ) {
+  //     await this.db.put({
+  //       _id: id,
+  //       key: value,
+  //     })
+  //   }
+  // }
 
   /**
    * Adds a set of ES256K and ED25519 Wallets
    * @param options
    */
-  public async addWallet(options: ICreateOrLoadWalletProps) {
-    let account: Account
-    try {
-      account = await this.db.get('xdv:account')
-      // @ts-ignore
-      if (account && account._rev && !account.isLocked) {
-        // open
-        await this.db.crypto(options.passphrase)
-        account = await this.db.get('xdv:account')
-      }
-    } catch (e) {
-      throw new Error('No account created')
-    }
+  public async addWallet(options: ICreateOrLoadWalletProps = {}) {
+    let account = await this.getAccount()
+
+    if (!account) throw new Error('No account')
+
     let id = Buffer.from(ethers.utils.randomBytes(100)).toString('base64')
-    if (options.walletId) {
-      id = options.walletId
-    }
     let mnemonic = options.mnemonic
     let ethersWallet
     if (mnemonic) {
@@ -484,26 +469,22 @@ export class Wallet {
       false,
     )
 
-    const keystoreMnemonicAsString = await ethersWallet.encrypt(
-      options.passphrase,
-    )
-
     const keystore: KeystoreDbModel = {
-      _id: id,
+      walletId: id,
       keypairs: keystores,
-      keystoreSeed: keystoreMnemonicAsString,
       mnemonic: mnemonic,
       keypairExports: keyExports,
     }
 
-    account.keystores.push(keystore)
-    account.isActive = true
-    account.isLocked = true
-    account.currentKeystoreId = id
+    const ksArray = account.get('keystores')
+    await account.update({
+      $set: {
+        currentKeystoreId: id,
+        keystores: [...ksArray, keystore],
+      },
+    })
 
-    await this.db.put(account)
-
-    return this
+    return id
   }
 
   /**
@@ -515,9 +496,11 @@ export class Wallet {
     algorithm: AlgorithmTypeString,
     keystoreId: string,
   ): Promise<ec.KeyPair | eddsa.KeyPair> {
-    const ks = (await this.getAccount()).keystores.find(
-      (w) => w._id === keystoreId,
-    )
+    let account = await this.getAccount()
+
+    //open an existing wallet
+    const ks = account.get('keystores').find((w) => w._id === keystoreId)
+    if (!ks) throw new Error('No wallet selected')
 
     if (algorithm === 'ED25519') {
       const kp = new eddsa('ed25519')
@@ -540,9 +523,12 @@ export class Wallet {
     algorithm: AlgorithmTypeString,
     keystoreId: string,
   ) {
-    const ks = (await this.getAccount()).keystores.find(
-      (w) => w._id === keystoreId,
-    )
+    let account = await this.getAccount()
+
+    //open an existing wallet
+    const ks = account.get('keystores').find((w) => w._id === keystoreId)
+    if (!ks) throw new Error('No wallet selected')
+
     return ks.keypairExports[algorithm]
   }
 
@@ -712,8 +698,6 @@ export class Wallet {
     return ethers.Wallet.createRandom().mnemonic
   }
 
-
-
   /**
    * Derives a wallet from a path
    */
@@ -749,15 +733,19 @@ export class Wallet {
    * Gets keystore from session db
    */
   async getAccount(passphrase?: string): Promise<RxDocument> {
-    const accounts = this.db.accounts
-    const account: RxDocument = await accounts
-      .findOne({
-        selector: {
-          id: 'xdv:account',
-        },
-      })
-      .exec()
-
+    let account
+    try {
+      const accounts = this.db.accounts
+      account = await accounts
+        .findOne({
+          selector: {
+            id: 'xdv:account',
+          },
+        })
+        .exec()
+    } catch (e) {
+      return e
+    }
     return account
   }
 
