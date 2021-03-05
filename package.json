@@ -1,6 +1,6 @@
 {
    "name": "xdv-universal-wallet",
-   "version": "0.3.0",
+   "version": "0.3.1",
    "description": "A wallet for documents and tokens",
    "main": "lib/index.js",
    "scripts": {
@@ -12,7 +12,7 @@
    "keywords": [
       "universal wallet"
    ],
-   "author": "@molekilla",
+   "author": "IFESA",
    "license": "MIT",
    "repository": {
       "url": "https://github.com/Electronic-Signatures-Industries/xdv-universal-wallet"
