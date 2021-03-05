@@ -2,7 +2,7 @@ import EthrDID from 'ethr-did'
 import { ec, eddsa } from 'elliptic'
 import { BigNumber, ethers } from 'ethers'
 import { getMasterKeyFromSeed } from 'ed25519-hd-key'
-import { IsDefined, IsOptional, IsString } from 'class-validator'
+import { IsDefined, IsOptional, IsString, matches } from 'class-validator'
 import { JOSEService } from './JOSEService'
 import { JWE, JWK } from 'node-jose'
 import { JWTService } from './JWTService'
@@ -199,25 +199,39 @@ export class Wallet {
     this.isWeb = isWeb
   }
 
-  /**
-   * Enrolls account, returns false if already exists, otherwise account model
-   * @param options create or load wallet options, password must be at least 12 chars
+  /**\
+   * Opens an account
    */
-  async enrollAccount(options: ICreateOrLoadWalletProps) {
+  async open(accountName: string, passphrase: string) {
     try {
-      
+      if (!matches(accountName, /^[a-z][_$a-z0-9]*$/)) {
+        throw new Error('Invalid account name')
+      }
+      if (passphrase.length < 11) {
+        throw new Error('Passphrase must be 12 or more characters')
+      }
       this.db = await createRxDatabase({
-        name: options.accountName,
+        name: accountName,
         adapter: this.isWeb ? 'idb' : 'memory',
         multiInstance: true,
-        password: options.passphrase,
+        password: passphrase,
         ignoreDuplicate: true
       })
+
+      return this.getAccount();
+
     } catch (e) {
       console.log(e)
       // already exists
       return false
     }
+
+  }
+  /**
+   * Enrolls account, returns false if already exists, otherwise account model
+   * @param options create or load wallet options, password must be at least 12 chars
+   */
+  async enrollAccount(options: ICreateOrLoadWalletProps) {
 
     await this.db.addCollections({
       accounts: {

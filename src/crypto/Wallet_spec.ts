@@ -25,10 +25,15 @@ describe('universal wallet - wallet and 3ID', function () {
 
     // Password 12 characters or more
     const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
 
+    let acct = await wallet.open(
+      accountName,
+      passphrase
+    );
     // Enroll account only needs to done once
     // Returns account if already created
-    const acct = await wallet.enrollAccount({
+    acct = await wallet.enrollAccount({
       passphrase,
       accountName: 'mywallet1'
     });
