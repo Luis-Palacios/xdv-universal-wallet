@@ -17,128 +17,135 @@ let id = null
 let url = 'https://ropsten.infura.io/v3/79110f2241304162b087759b5c49cf99'
 
 describe('universal wallet - wallet and 3ID', function () {
-  let selectedWallet: Wallet
+  let wallet: Wallet
   before(async function () {})
 
-  it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {  
-    const wallet = new Wallet()
+  it('when calling createWeb3Provider, should return a web3 instance and wallet id', async function () {
+    wallet = new Wallet()
 
     // Password 12 characters or more
     const passphrase = 'qwerty123456'
     const accountName = 'molekilla'
 
-    let acct = await wallet.open(
-      accountName,
-      passphrase
-    );
+    await wallet.open(accountName, passphrase)
+
     // Enroll account only needs to done once
     // Returns account if already created
-    acct = await wallet.enrollAccount({
+    await wallet.enrollAccount({
       passphrase,
-      accountName: 'mywallet1'
-    });
+      accountName: 'mywallet1',
+    })
+
+    let acct = await wallet.getAccount()
 
     // Assert keystores length is 0, enrollAccount only creates an account
     if (acct.get('keystores').length === 0) {
-      expect(acct.get('keystores').length).equal(0);
+      expect(acct.get('keystores').length).equal(0)
     }
 
     // add wallet with no mnemonic
-    await wallet.addWallet();
+    const walletId = await wallet.addWallet()
 
     // Assert keystores exists
     if (acct.get('keystores').length > 0) {
-      expect(acct.get('keystores').length).greaterThan(0);
+      expect(acct.get('keystores').length).greaterThan(0)
     }
 
     // Create 3ID enabled Web3 provider
     const result = await wallet.createWeb3Provider({
-      passphrase,
       rpcUrl: url,
-      accountName:''
+      walletId
     })
-    
+
     expect(result.id.length).to.be.above(0)
     // wallet.close();
   })
 
   it('when calling createWeb3Provider and create3IDWeb3, should return a web3 instance and wallet id', async function () {
-    const wallet = new Wallet()
-
     // Password 12 characters or more
     const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
+
+    await wallet.open(accountName, passphrase)
 
     // Enroll account only needs to done once
-    // Returns account if created
-    let acct = await wallet.enrollAccount({
+    // Returns account if already created
+    await wallet.enrollAccount({
       passphrase,
-      accountName: 'mywallet1'
-    });
+      accountName: 'mywallet1',
+    })
 
-    if (!acct) {
-      acct = await wallet.getAccount()
-      console.log(acct)
-
-    }
+    let acct = await wallet.getAccount()
 
     // Assert keystores length is 0, enrollAccount only creates an account
     if (acct.get('keystores').length === 0) {
-      expect(acct.get('keystores').length).equal(0);
+      expect(acct.get('keystores').length).equal(0)
     }
 
     // add wallet with no mnemonic
-    const walletId = await wallet.addWallet();
+    const walletId = await wallet.addWallet()
 
     // Assert keystores exists
     if (acct.get('keystores').length > 0) {
-      expect(acct.get('keystores').length).greaterThan(0);
+      expect(acct.get('keystores').length).greaterThan(0)
     }
     id = walletId
 
     expect(id.length).to.be.above(0)
   })
   it('when calling createES256K with an existing id, should return a web3 instance and wallet id', async function () {
-    const wallet = new Wallet()
-    const passphrase = '1234'
-    
-    const result = await wallet.createES256K({
-      passphrase: '1234',
-      rpcUrl: url,
-      walletId: id,
-      registry: '',
-      accountName: ''
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
+
+    await wallet.open(accountName, passphrase)
+
+    // Enroll account only needs to done once
+    // Returns account if already created
+    await wallet.enrollAccount({
+      passphrase,
+      accountName,
     })
-    await wallet.setAccountLock(passphrase, true)
+
     let acct = await wallet.getAccount()
-    console.log(acct.keystores)
-    await wallet.setAccountLock(passphrase, false)
-    acct = await wallet.getAccount()
-    console.log(acct.keystores)
+    // add wallet with no mnemonic
+    const walletId = await wallet.addWallet()
 
-    expect(result.address).equal(result.address)
-  })
-
-  it('when calling createES256K with an existing id, should return a web3 instance and wallet id', async function () {
-    const wallet = new Wallet()
-    const passphrase = '1234'
     const result = await wallet.createES256K({
       passphrase: '1234',
       rpcUrl: url,
-      walletId: id,
+      walletId,
       registry: '',
-      accountName: ''
+      accountName: '',
     })
+
     expect(result.address).equal(result.address)
   })
+
   it('when calling createES256K with an existing id and create a VC, should return a web3 instance and wallet id', async function () {
-    const wallet = new Wallet()
-    const passphrase = '1234'
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
+
+    await wallet.open(accountName, passphrase)
+
+    // Enroll account only needs to done once
+    // Returns account if already created
+    await wallet.enrollAccount({
+      passphrase,
+      accountName,
+    })
+
+    let acct = await wallet.getAccount()
+    // add wallet with no mnemonic
+    const walletId = await wallet.addWallet()
+
     const result = await wallet.createES256K({
       passphrase: '1234',
       rpcUrl: url,
-      walletId: id,
+      walletId,
       registry: '',
-      accountName: ''
+      accountName: '',
     })
 
     const vcService = new W3CVerifiedCredential()
@@ -153,45 +160,69 @@ describe('universal wallet - wallet and 3ID', function () {
   })
 
   it('when calling create3IDEd25519 , should return a did instance and wallet id', async function () {
-    const wallet = new Wallet()
-    const passphrase = '1234'
-    const res = await wallet.createEd25519({
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
+
+    await wallet.open(accountName, passphrase)
+
+    // Enroll account only needs to done once
+    // Returns account if already created
+    await wallet.enrollAccount({
       passphrase,
-      rpcUrl: url,
-      walletId: id,
-      registry: '',
-      accountName: ''      
+      accountName,
     })
-    await res.did.authenticate()
-    const issuer = res.getIssuer()
+
+    let acct = await wallet.getAccount()
+    // add wallet with no mnemonic
+    const walletId = await wallet.addWallet()
+
+    const result = await wallet.createEd25519({
+      rpcUrl: url,
+      walletId,
+      registry: '',
+    })
+    await result.did.authenticate()
+    const issuer = result.getIssuer()
     expect(issuer.alg).equal('Ed25519')
-    expect(res.did.id.length).to.be.above(0)
+    expect(result.did.id.length).to.be.above(0)
   })
 })
 
 describe('universal wallet - wallet, 3ID and IPLD', function () {
-  let selectedWallet: Wallet
+  let wallet: Wallet
   before(async function () {})
 
   it('when adding a signed DID/IPLD object , should fetch and return uploaded data', async function () {
-    const wallet = new Wallet()
-    const passphrase = '1234'
-    const did = await wallet.createEd25519({
-      passphrase,
-      rpcUrl: url,
-      walletId: id,
-      registry: '',
-      accountName: ''      
-    })
-    const acct = await wallet.getAccount();
-    expect(acct.currentKeystoreId.length).to.be.above(0)
+    wallet = new Wallet()
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
 
-    const ipfsManager = new IPLDManager(did.did)
+    await wallet.open(accountName, passphrase)
+
+    // Enroll account only needs to done once
+    // Returns account if already created
+    await wallet.enrollAccount({
+      passphrase,
+      accountName,
+    })
+
+    let acct = await wallet.getAccount()
+    // add wallet with no mnemonic
+    const walletId = await wallet.addWallet()
+
+    const result = await wallet.createEd25519({
+      rpcUrl: url,
+      walletId,
+      registry: '',
+    })
+    const ipfsManager = new IPLDManager(result.did)
     await ipfsManager.start()
 
     const fil = Buffer.from('fffffffffffffffffffffff')
     // auth
-    await did.did.authenticate()
+    await result.did.authenticate()
     const cid = await ipfsManager.addSignedObject(fil, {
       name: 'UnitTest.txt',
       contentType: 'text/text',
@@ -204,17 +235,29 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
   })
 
   it('when adding a signed and encrypted DID/IPLD object , should fetch and return uploaded data', async function () {
-    const wallet = new Wallet()
-    const passphrase = '1234'
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
 
+    await wallet.open(accountName, passphrase)
+
+    // Enroll account only needs to done once
+    // Returns account if already created
+    await wallet.enrollAccount({
+      passphrase,
+      accountName,
+    })
+
+    let acct = await wallet.getAccount()
+    // add wallet with no mnemonic
+    const walletAId = await wallet.addWallet()
+    const walletBId = await wallet.addWallet()
 
     const did = await wallet.createEd25519({
-      passphrase,
-      accountName: ''
+      walletId: walletAId
     })
     const didBob = await wallet.createEd25519({
-      passphrase,
-      accountName: ''
+      walletId: walletBId
     })
 
     const ipfsManager = new IPLDManager(did.did)
@@ -241,16 +284,29 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
   })
 
   it('when adding a signed and encrypted DID/IPLD object , should failed decrypting if not allowed', async function () {
-    const wallet = new Wallet()
-    const passphrase = '1234'
+    // Password 12 characters or more
+    const passphrase = 'qwerty123456'
+    const accountName = 'molekilla'
+
+    await wallet.open(accountName, passphrase)
+
+    // Enroll account only needs to done once
+    // Returns account if already created
+    await wallet.enrollAccount({
+      passphrase,
+      accountName,
+    })
+
+    let acct = await wallet.getAccount()
+    // add wallet with no mnemonic
+    const walletAId = await wallet.addWallet()
+    const walletBId = await wallet.addWallet()
 
     const walletProviderAlice = await wallet.createES256K({
-      passphrase,
-      accountName: ''
+      walletId: walletAId
     })
     const walletProviderBob = await wallet.createES256K({
-      passphrase,
-      accountName: ''
+      walletId: walletBId
     })
 
     const ipfsManager = new IPLDManager(walletProviderAlice.did)
@@ -260,7 +316,6 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
       walletProviderBob.publicKey,
       Buffer.from('Hola Mundo Secreto!'),
     )
-
 
     const plaintext = await walletProviderBob.secureMessage.decrypt(message)
 

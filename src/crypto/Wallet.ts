@@ -165,6 +165,7 @@ import * as PouchdbAdapterMemory from 'pouchdb-adapter-memory'
 import { RxDBEncryptionPlugin } from 'rxdb/plugins/encryption'
 import { RxDBValidatePlugin } from 'rxdb/plugins/validate'
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update'
+import { Console } from 'console'
 addRxPlugin(RxDBDevModePlugin)
 
 /**
@@ -200,7 +201,7 @@ export class Wallet {
   }
 
   /**\
-   * Opens an account
+   * Opens a db
    */
   async open(accountName: string, passphrase: string) {
     try {
@@ -217,13 +218,13 @@ export class Wallet {
         password: passphrase,
         ignoreDuplicate: true
       })
-
-      return this.getAccount();
-
+ 
+      
+   
+      return this;
     } catch (e) {
-      console.log(e)
       // already exists
-      return false
+      throw e;
     }
 
   }
@@ -249,7 +250,9 @@ export class Wallet {
       currentKeystoreId: '',
       keystores: [],
     }
-    return await accounts.insert(accountModel)
+    if (!( (await this.db.accounts.findByIds(['xdv:account'])).size > 0)) {
+        return accounts.insert(accountModel)
+    }
   }
 
   async close() {
@@ -277,13 +280,11 @@ export class Wallet {
    * @param options { passphrase, walletid, registry, rpcUrl }
    */
   async createES256K(options: ICreateOrLoadWalletProps) {
-    let wallet = new Wallet()
     let ks
     let account = await this.getAccount()
 
-
     //open an existing wallet
-    ks = account.get('keystores').find((w) => w._id === options.walletId)
+    ks = account.get('keystores').find((w) => w.walletId === options.walletId)
     if (!ks) throw new Error('No wallet selected')
 
     const kp = new ec('secp256k1')
@@ -328,6 +329,7 @@ export class Wallet {
       publicKey: kpInstance.getPublic('hex'),
     } as unknown) as XDVUniversalProvider
   }
+  
   /**
    * Creates an universal wallet for Ed25519
    * @param nodeurl EVM Node
@@ -339,7 +341,7 @@ export class Wallet {
     let account = await this.getAccount(options.passphrase)
 
     //open an existing wallet
-    ks = account.get('keystores').find((w) => w._id === options.walletId)
+    ks = account.get('keystores').find((w) => w.walletId === options.walletId)
     if (!ks) throw new Error('No wallet selected')
 
     const kp = new eddsa('ed25519')
@@ -367,7 +369,7 @@ export class Wallet {
 
     web3 = new Web3(options.rpcUrl)
     //open an existing wallet
-    ks = account.get('keystores').find((w) => w._id === options.walletId)
+    ks = account.get('keystores').find((w) => w.walletId === options.walletId)
     if (!ks) throw new Error('No wallet selected')
 
     const privateKey = '0x' + ks.keypairs.ES256K
@@ -490,8 +492,9 @@ export class Wallet {
       keypairExports: keyExports,
     }
 
+
     const ksArray = account.get('keystores')
-    await account.update({
+    const row = await account.update({
       $set: {
         currentKeystoreId: id,
         keystores: [...ksArray, keystore],
@@ -757,6 +760,7 @@ export class Wallet {
           },
         })
         .exec()
+        return account
     } catch (e) {
       return e
     }
