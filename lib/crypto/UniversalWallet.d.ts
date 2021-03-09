@@ -7,9 +7,9 @@ export declare class UniversalWallet extends Wallet implements IUniversalWallet 
      * @param mnemonic Mnemonic
      * @param passphrase Passphrase
      */
-    import(mnemonic: string, passphrase: string): Promise<object>;
+    import(mnemonic: string, passphrase: string): Promise<any>;
     export(walletId: string, passphrase: string): Promise<object>;
-    unlock(walletId: string, passphrase: string): Promise<object>;
+    unlock(walletId: string, passphrase: string): Promise<any>;
     lock(passphrase: string): Promise<object>;
     signRaw(buf: Uint8Array, options: ISignerProps): Promise<object>;
     verifyRaw(buf: Uint8Array, options: ISignerProps): Promise<object>;

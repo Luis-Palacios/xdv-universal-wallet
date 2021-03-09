@@ -16,7 +16,7 @@ export class UniversalWallet extends Wallet implements IUniversalWallet {
    * @param passphrase Passphrase
    */
   async import(mnemonic: string, passphrase: string): Promise<any> {
-    const accountName = 'myEtherWallet';
+    const accountName = 'myEtherWallet'
     await this.open(accountName, passphrase)
 
     // Enroll account only needs to done once
@@ -26,14 +26,13 @@ export class UniversalWallet extends Wallet implements IUniversalWallet {
       accountName: 'mywallet1',
     })
 
-    return this.addWallet({ mnemonic });
-    
+    return this.addWallet({ mnemonic })
   }
   export(walletId: string, passphrase: string): Promise<object> {
     throw new Error('Method not implemented.')
   }
   async unlock(walletId: string, passphrase: string): Promise<any> {
-    const accountName = 'myEtherWallet';
+    const accountName = 'myEtherWallet'
     await this.open(accountName, passphrase)
 
     // Enroll account only needs to done once
@@ -45,10 +44,10 @@ export class UniversalWallet extends Wallet implements IUniversalWallet {
 
     const acct = await this.getAccount(passphrase)
 
-    return '';
+    return ''
   }
   async lock(passphrase: string): Promise<object> {
-    
+    return null
   }
   signRaw(buf: Uint8Array, options: ISignerProps): Promise<object> {
     throw new Error('Method not implemented.')
