@@ -1,10 +1,12 @@
 /// <reference types="node" />
+/// <reference types="pouchdb-core" />
 import EthrDID from 'ethr-did';
 import { ec, eddsa } from 'elliptic';
 import { ethers } from 'ethers';
 import { Subject } from 'rxjs';
 import Web3 from 'web3';
 import { DID } from 'dids';
+import { RxDatabase, RxDocument } from 'rxdb';
 export declare type AlgorithmTypeString = keyof typeof AlgorithmType;
 export declare enum AlgorithmType {
     RSA = 0,
@@ -35,11 +37,11 @@ export interface XDVUniversalProvider {
 }
 export interface ICreateOrLoadWalletProps {
     walletId?: string;
-    passphrase: string;
+    passphrase?: string;
     registry?: string;
     rpcUrl?: string;
     mnemonic?: string;
-    accountName: string;
+    accountName?: string;
 }
 export interface KeyStoreModel {
     ES256K: any;
@@ -47,11 +49,10 @@ export interface KeyStoreModel {
     ED25519: any;
 }
 export interface KeystoreDbModel {
-    _id: any;
+    walletId: string;
     keypairs: KeyStoreModel;
-    keystoreSeed: any;
-    mnemonic: string;
     path?: string;
+    mnemonic: string;
     keypairExports: KeyStoreModel;
     publicKeys?: any;
 }
@@ -62,73 +63,132 @@ export declare class KeyStore implements KeyStoreModel {
     constructor();
 }
 export interface Account {
-    _id: string;
     id: string;
-    timestamp: Date;
-    isActive: boolean;
+    created: number;
     isLocked: boolean;
     description: string;
-    attributes: string[];
+    attributes: any[];
     currentKeystoreId: string;
     keystores: KeystoreDbModel[];
 }
+export declare const XDVWalletSchema: {
+    title: string;
+    version: number;
+    description: string;
+    type: string;
+    properties: {
+        id: {
+            type: string;
+            primary: boolean;
+        };
+        created: {
+            type: string;
+        };
+        isLocked: {
+            type: string;
+        };
+        currentKeystoreId: {
+            type: string;
+        };
+        attributes: {
+            type: string;
+        };
+        keystores: {
+            type: string;
+            items: {
+                type: string;
+                properties: {
+                    walletId: {
+                        type: string;
+                    };
+                    mnemonic: {
+                        type: string;
+                    };
+                    keystoreSeed: {
+                        type: string;
+                    };
+                    keypairs: {
+                        type: string;
+                    };
+                    keypairExports: {
+                        type: string;
+                    };
+                    publicKeys: {
+                        type: string;
+                    };
+                    path: {
+                        type: string;
+                    };
+                };
+            };
+        };
+        description: {
+            type: string;
+        };
+    };
+    encrypted: string[];
+};
+/**
+ * XDV Wallet for DID and VC use cases
+ */
 export declare class Wallet {
     private readonly DB_NAME;
     onRequestPassphraseSubscriber: Subject<any>;
     onRequestPassphraseWallet: Subject<any>;
     onSignExternal: Subject<any>;
-    protected db: any;
+    protected db: RxDatabase;
     accepted: any;
-    constructor();
+    isWeb: boolean;
     /**
-     * Gets a public key from storage
-     * @param id
-     * @param algorithm
+     * Creates a new Wallet
+     * @param param0 isWeb, true if used by browser otherwise false
      */
-    getPublicKey(id: string): Promise<any>;
+    constructor({ isWeb }?: {
+        isWeb: boolean;
+    });
+    /**\
+     * Opens a db
+     */
+    open(accountName: string, passphrase: string): Promise<this>;
+    /**
+     * Enrolls account, returns false if already exists, otherwise account model
+     * @param options create or load wallet options, password must be at least 12 chars
+     */
+    enrollAccount(options: ICreateOrLoadWalletProps): Promise<any>;
+    close(): Promise<void>;
     getUniversalWalletKey(alg: string): Promise<void>;
     /**
      * Creates an universal wallet for ES256K
      * @param options { passphrase, walletid, registry, rpcUrl }
      */
-    static createES256K(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
+    createES256K(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
     /**
      * Creates an universal wallet for Ed25519
      * @param nodeurl EVM Node
      * @param options { passphrase, walletid }
      */
-    static create3IDEd25519(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
+    createEd25519(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
     /**
      * Creates an universal wallet  for Web3 Providers
      * @param options { passphrase, walletid, registry, rpcUrl }
      */
-    static createWeb3Provider(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
-    /**
-     * Sets a public key in storage
-     * @param id
-     * @param algorithm
-     * @param value
-     */
-    setPublicKey(id: string, algorithm: AlgorithmTypeString, value: object): Promise<void>;
-    getImportKey(id: string): Promise<any>;
-    /**
-     * Sets a public key in storage
-     * @param id
-     * @param algorithm
-     * @param value
-     */
-    setImportKey(id: string, value: object): Promise<void>;
-    /**
-     * Creates an account and a set of ES256K and ED25519 Wallets
-     * @param options
-     */
-    createAccount(options: ICreateOrLoadWalletProps): Promise<this>;
+    createWeb3Provider(options: ICreateOrLoadWalletProps): Promise<XDVUniversalProvider>;
     /**
      * Adds a set of ES256K and ED25519 Wallets
      * @param options
      */
-    addWallet(options: ICreateOrLoadWalletProps): Promise<this>;
+    addWallet(options?: ICreateOrLoadWalletProps): Promise<string>;
+    /**
+     * Get private key as elliptic keypair
+     * @param algorithm
+     * @param keystoreId
+     */
     protected getPrivateKey(algorithm: AlgorithmTypeString, keystoreId: string): Promise<ec.KeyPair | eddsa.KeyPair>;
+    /**
+     * Get private key exports
+     * @param algorithm
+     * @param keystoreId
+     */
     protected getPrivateKeyExports(algorithm: AlgorithmTypeString, keystoreId: string): Promise<any>;
     canUse(): Promise<unknown>;
     /**
@@ -145,6 +205,12 @@ export declare class Wallet {
      * @param options options
      */
     signJWT(algorithm: AlgorithmTypeString, keystoreId: string, payload: any, options: any): Promise<[Error, any?]>;
+    /**
+     * Signs JWT using public keys
+     * @param publicKey
+     * @param payload
+     * @param options
+     */
     signJWTFromPublic(publicKey: any, payload: any, options: any): Promise<[Error, any?]>;
     /**
      * Encrypts JWE
@@ -154,12 +220,17 @@ export declare class Wallet {
      *
      */
     encryptJWE(algorithm: AlgorithmTypeString, keystoreId: string, payload: any, overrideWithKey: any): Promise<[Error, any?]>;
+    /**
+     * Decript JWE
+     * @param algorithm
+     * @param keystoreId
+     * @param payload
+     */
     decryptJWE(algorithm: AlgorithmTypeString, keystoreId: string, payload: any): Promise<[Error, any?]>;
     /**
      * Generates a mnemonic
      */
     static generateMnemonic(): ethers.utils.Mnemonic;
-    unlockKeystore(id: string): Promise<void>;
     /**
      * Derives a wallet from a path
      */
@@ -168,15 +239,25 @@ export declare class Wallet {
      * Gets EdDSA key pair
      */
     getEd25519(mnemonic: string): eddsa.KeyPair;
+    /**
+     * Gets ECDSA key pair
+     * @param mnemonic
+     */
     getES256K(mnemonic: string): ec.KeyPair;
     /**
      * Gets keystore from session db
      */
-    getAccount(): Promise<Account>;
+    getAccount(passphrase?: string): Promise<RxDocument>;
     /**
-     * Sets a keystore index, if keystore is diff, then clears lock (lock set to false)
+     * Sets account lock
      * @param id
      */
     setAccountLock(lock: boolean): Promise<any>;
+    /**
+     * Sets current keystore
+     * @param passphrase
+     * @param id
+     *
+     */
     setCurrentKeystore(id: string): Promise<any>;
 }

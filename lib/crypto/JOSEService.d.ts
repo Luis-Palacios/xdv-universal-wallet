@@ -1,4 +1,5 @@
 /// <reference types="node" />
+/// <reference types="pouchdb-core" />
 export declare class KeyRecipient {
     header: any;
     key: any;

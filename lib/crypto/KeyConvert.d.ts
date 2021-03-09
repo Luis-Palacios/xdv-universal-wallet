@@ -1,4 +1,5 @@
 /// <reference types="node" />
+/// <reference types="pouchdb-core" />
 import { ec, eddsa } from 'elliptic';
 import { LDCryptoTypes } from './LDCryptoTypes';
 import { PrivateKey } from '../did';

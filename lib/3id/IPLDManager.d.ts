@@ -1,4 +1,5 @@
 /// <reference types="node" />
+/// <reference types="pouchdb-core" />
 import { DID } from 'dids';
 import { ethers } from 'ethers';
 export declare class IPLDManager {
