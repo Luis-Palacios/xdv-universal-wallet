@@ -1,3 +1,4 @@
+
 import { VerifiableCredential } from 'did-jwt-vc'
 import { KeystoreDbModel, Wallet } from './Wallet'
 import {
@@ -31,23 +32,36 @@ export class UniversalWallet extends Wallet implements IUniversalWallet {
   export(walletId: string, passphrase: string): Promise<object> {
     throw new Error('Method not implemented.')
   }
-  async unlock(walletId: string, passphrase: string): Promise<any> {
-    const accountName = 'myEtherWallet'
-    await this.open(accountName, passphrase)
-
-    // Enroll account only needs to done once
-    // Returns account if already created
-    await this.enrollAccount({
-      passphrase,
-      accountName,
-    })
-
-    const acct = await this.getAccount(passphrase)
-
-    return ''
+  async unlock(walletId: string, passphrase: string): Promise<object> {
+    //TODO - Build JSON
+    try {
+      const a = await this.getAccount()
+      //@ts-ignore
+      const ks = a.keystores.find(
+        //@ts-ignore
+        (i) => i._id === a.currentKeystoreId,
+      ) as KeystoreDbModel
+      return ks
+    } catch (e) {
+      //@ts-ignore
+      this.db.crypto(passphrase)
+      //
+    }
   }
   async lock(passphrase: string): Promise<object> {
-    return null
+    //TODO - Build JSON
+    try {
+      const a = await this.getAccount()
+      //@ts-ignore
+      const ks = a.keystores.find(
+        //@ts-ignore
+        (i) => i._id === a.currentKeystoreId,
+      ) as KeystoreDbModel
+      //@ts-ignore
+      this.db.crypto(passphrase)
+    } catch (e) {
+    }
+    return {}
   }
   signRaw(buf: Uint8Array, options: ISignerProps): Promise<object> {
     throw new Error('Method not implemented.')

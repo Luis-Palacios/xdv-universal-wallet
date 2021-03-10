@@ -13,11 +13,22 @@
     "strict": false,
     "sourceMap": true,
     "rootDir": "./src",
+    "skipLibCheck": true
   },
-  "include": [
-    "src", "types"
+  "typedocOptions": {
+    "entryPoints": ["src/index.ts"],
+    "out": "docs"
+  },
+   "include": [
+    "src", "types",
+    "./node_modules/handlebars",
+    "./node_modules/.bin"
   ],
   "exclude": [
-    "./node_modules", "./src/**/*_spec.ts"
+    "./node_modules", "./src/**/*_spec.ts",
+      "node_modules",
+      "./node_modules",
+      "./node_modules/*",
+      "./node_modules/@types/node/index.d.ts",
   ]
 }

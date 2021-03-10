@@ -7,7 +7,8 @@
       "test": "ts-mocha --timeout 540000  src/**/*_spec.ts",
       "start": "ts-node src/index.ts",
       "build": "tsc",
-      "watch": "tsnd --respawn index.ts --watch ./src"
+      "watch": "tsnd --respawn index.ts --watch ./src",
+      "docs": "typedoc --theme markdown"
    },
    "keywords": [
       "universal wallet"
@@ -29,7 +30,9 @@
       "ts-mocha": "^7.0.0",
       "ts-node": "3.3.0",
       "ts-node-dev": "^1.0.0-pre.44",
-      "typescript": "3.3.3333"
+      "typedoc": "^0.20.30",
+      "typedoc-plugin-markdown": "^3.6.0",
+      "typescript": "^3.9.9"
    },
    "dependencies": {
       "@ceramicnetwork/key-did-resolver": "^0.2.2",
