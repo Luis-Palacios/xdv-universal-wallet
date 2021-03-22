@@ -1,0 +1,30 @@
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+.main-btn {
+  font-size: 43px;
+  padding: 20px;
+  width: 600px;
+  cursor: pointer;
+  text-transform: uppercase;
+  border-color: purple;
+  background-color: #9c3cad;
+  color: white;
+}
+
+.main-btn:hover {
+  background-color: #c721e4;
+}
+
+.main-btn:active {
+  background-color: #d901ff;
+}
+
+* {
+  box-sizing: border-box;
+}
