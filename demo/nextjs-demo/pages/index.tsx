@@ -2,9 +2,12 @@ import Head from "next/head";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import styles from "../styles/Home.module.css";
+import { UniversalWallet } from '../../../lib'
 
 export default function Home() {
-  const onConnectClick = () => {
+  const onConnectClick = async () => {
+    const universalWallet = new UniversalWallet();
+    const demo = await universalWallet.unlock('1234', 'abcdef123456');
     toast.success("Connected");
   };
 
