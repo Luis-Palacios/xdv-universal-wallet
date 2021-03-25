@@ -14,7 +14,10 @@ import { DID } from "dids";
 import { IDX } from "@ceramicstudio/idx";
 import { ThreeIdConnect, EthereumAuthProvider } from "3id-connect";
 
-const CERAMIC_URL = "http://localhost:7007"; // TODO: set as env variable
+const CERAMIC_URL = 'https://dev-ceramic-node.paidnetwork.com'; // TODO: set as env variable
+const aliases = {
+  secretNotes: 'kjzl6cwe1jw14b03qkg5rl0dmq44yjayvku5yvca69fhokexzodwpbjb2zgqusj'
+}
 const providerOptions = {
   walletconnect: {
     package: WalletConnectProvider,
@@ -23,44 +26,49 @@ const providerOptions = {
     },
   },
 };
+let threeIdConnect: ThreeIdConnect = null;
 
 export default function Home() {
+  useEffect(() => {
+     threeIdConnect = new ThreeIdConnect();
+  }, []);
+
   const onConnectClick = async () => {
     const ethProvider = await new Web3Modal({
       providerOptions: providerOptions,
-      cacheProvider: false,
+      cacheProvider: true,
+      network: 'mainnet',
     }).connect();
 
     const addresses = await ethProvider.enable();
 
     debugger;
     const authProvider = new EthereumAuthProvider(ethProvider, addresses[0]);
-    const threeIdConnect = new ThreeIdConnect();
     await threeIdConnect.connect(authProvider);
     const didProvider =  threeIdConnect.getDidProvider();
 
     debugger;
     const ceramic = new Ceramic(CERAMIC_URL);
-    ceramic.setDIDProvider(didProvider);
-    
+    await ceramic.setDIDProvider(didProvider);
+    debugger;
     // ceramic.setDIDProvider
     // const did = new DID({
     //   provider: threeIdConnect.getDidProvider(),
     //   resolver: ThreeIdResolver.getResolver(ceramic),
     // });
 
-    await ceramic.did.authenticate();
+    // await ceramic.did.authenticate();
 
-    console.log(ceramic.did.id);
+    // console.log(ceramic.did.id);
 
-    const jws = await ceramic.did.createJWS({ hello: "world" });
-    console.log(jws);
-    const aliases = {
-      secretNotes: 'kjzl6cwe1jw14b03qkg5rl0dmq44yjayvku5yvca69fhokexzodwpbjb2zgqusj'
-    }
+    // const jws = await ceramic.did.createJWS({ hello: "world" });
+    // console.log(jws);
+    // const aliases = {
+    //   secretNotes: 'kjzl6cwe1jw14b03qkg5rl0dmq44yjayvku5yvca69fhokexzodwpbjb2zgqusj'
+    // }
     window.idx = new IDX({ ceramic, aliases });
-    window.ceramic = ceramic;
-    window.did = ceramic.did.id;
+    // window.ceramic = ceramic;
+    // window.did = ceramic.did.id;
 
     // const externalWeb3 = await didManager.create3IDWeb3External(
     //   provider,
