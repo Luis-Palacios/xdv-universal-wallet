@@ -6,7 +6,7 @@ import { JOSEService } from './JOSEService'
 import { JWTService } from './JWTService'
 import { KeyConvert, X509Info } from './KeyConvert'
 import { LDCryptoTypes } from './LDCryptoTypes'
-import { Wallet } from './Wallet'
+import { Wallet, XDVUniversalProvider } from './Wallet'
 import { DIDManager } from '../3id/DIDManager'
 import { IPLDManager } from '../3id/IPLDManager'
 import * as privateBox from 'private-box'
@@ -182,6 +182,13 @@ describe('universal wallet - wallet and 3ID', function () {
       walletId,
       registry: '',
     })
+
+    // ed25519creds: XDVUniversalProvider
+    await wallet.mapWeb3AddressToEd25519(address, ed25519creds) // A <---> B address
+        // get previously created key pair map
+        // walletId saved in local storage look up in 
+    const ed25519creds = await wallet.getDIDAccountFromWeb3Address(address)
+
     await result.did.authenticate()
     const issuer = result.getIssuer()
     expect(issuer.alg).equal('Ed25519')
@@ -321,4 +328,28 @@ describe('universal wallet - wallet, 3ID and IPLD', function () {
 
     expect(plaintext).equal('Hola Mundo Secreto!')
   })
+
+  describe('mapWeb3AddressToEd25519 ...', () => {
+    const testAddress = '0x234324';
+    
+    //
+    // CREATE ed25519c
+    const ed25519credsToInsert: XDVUniversalProvider = {
+
+    }
+    const wallet = new Wallet();
+    wallet.mapWeb3AddressToEd25519(testAddress, ed25519credsToInsert);
+
+    // TODO get from DB to check it was inserted
+    it('should insert ed25519creds into the lookup table with corresponding key address', () =>{
+
+    })
+  });
+
+  describe('getDIDAccountFromWeb3Address ...', () => {
+
+    it('should get an existing ed25519creds from the lookup table with corresponding key address', () =>{
+      
+    })
+  });
 })

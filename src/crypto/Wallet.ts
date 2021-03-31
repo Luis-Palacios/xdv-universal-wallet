@@ -102,6 +102,23 @@ export interface Account {
   keystores: KeystoreDbModel[]
 }
 
+export const AddressSchema = {
+  title: 'XDV Address Schema',
+  version: 0,
+  description: 'A RxDB XDV Adress Account schema',
+  type: 'object',
+  properties: {
+    key: { // Address
+      type: 'string',
+      primary: true,
+    },
+    value: {
+      type: 'object',
+    },
+  },
+  encrypted: ['value'],
+}
+
 export const XDVWalletSchema = {
   title: 'XDV Wallet Schema',
   version: 0,
@@ -238,6 +255,9 @@ export class Wallet {
       accounts: {
         schema: XDVWalletSchema,
       },
+      address: {
+        schema: AddressSchema
+      }
     })
 
     const accounts = this.db.accounts
@@ -253,6 +273,8 @@ export class Wallet {
     if (!( (await this.db.accounts.findByIds(['xdv:account'])).size > 0)) {
         return accounts.insert(accountModel)
     }
+
+    
   }
 
   async close() {
@@ -813,5 +835,23 @@ export class Wallet {
     })
 
     return updated
+  }
+
+  async mapWeb3AddressToEd25519(address: string, ed25519creds: XDVUniversalProvider) {
+    const addressCollection = this.db.address
+    await addressCollection.insert({
+      key: address,
+      value: ed25519creds
+    })
+  }
+
+  async getDIDAccountFromWeb3Address(address: string) {
+    const ed25519creds = await this.db.address.findOne({
+      selector: {
+        key: address
+      }
+    }).exec();
+
+    return ed25519creds;
   }
 }
