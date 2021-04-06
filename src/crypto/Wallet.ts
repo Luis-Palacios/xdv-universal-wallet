@@ -17,13 +17,11 @@ import * as ed from 'noble-ed25519'
 import { toEthereumAddress } from 'did-jwt'
 import EthCrypto from 'eth-crypto'
 import { stringToBytes } from 'did-jwt/lib/util'
-import { RxDatabase, RxDocument, RxQuery, RxDocumentBase } from 'rxdb'
+import { RxDatabase, RxDocument, addRxPlugin, createRxDatabase } from 'rxdb'
 
-// import modules
-import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode'
-import { createRxDatabase, addRxPlugin } from 'rxdb/plugins/core'
 import moment from 'moment'
 import { EthereumAuthProvider } from '3id-connect'
+import KeyResolver from '@ceramicnetwork/key-did-resolver'
 
 export type AlgorithmTypeString = keyof typeof AlgorithmType
 export enum AlgorithmType {
@@ -113,7 +111,7 @@ export const AddressSchema = {
       primary: true,
     },
     value: {
-      type: 'object',
+      type: 'string', // Seed (32)
     },
   },
   encrypted: ['value'],
@@ -183,7 +181,7 @@ import { RxDBEncryptionPlugin } from 'rxdb/plugins/encryption'
 import { RxDBValidatePlugin } from 'rxdb/plugins/validate'
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update'
 import { Console } from 'console'
-addRxPlugin(RxDBDevModePlugin)
+import { Ed25519Provider } from 'key-did-provider-ed25519'
 
 /**
  * XDV Wallet for DID and VC use cases
@@ -837,21 +835,46 @@ export class Wallet {
     return updated
   }
 
-  async mapWeb3AddressToEd25519(address: string, ed25519creds: XDVUniversalProvider) {
+  generateRadomSeed() {
+    return ethers.utils.randomBytes(32);
+  }
+
+  async mapWeb3AddressToEd25519Seed(address: string, seed: Uint8Array) {
     const addressCollection = this.db.address
     await addressCollection.insert({
       key: address,
-      value: ed25519creds
-    })
+      value: seed.toString()
+    });
+    return seed;
   }
 
   async getDIDAccountFromWeb3Address(address: string) {
-    const ed25519creds = await this.db.address.findOne({
+    // Get seed corresponding to the address from the db
+    const seedModel = await this.db.address.findOne({
       selector: {
         key: address
       }
     }).exec();
+    debugger;
+    if(!seedModel) { 
+      return null;
+    }
+    debugger;
+    const seed =  new Uint8Array(seedModel.value.split(','))
+    const provider = new Ed25519Provider(seed)
+    // @ts-ignore
+    const did = new DID({ provider, resolver: KeyResolver.getResolver() })
+    await did.authenticate()
+    return did;
+  }
 
-    return ed25519creds;
+  async create3ID(address) {
+    const seed = this.generateRadomSeed();
+    const provider = new Ed25519Provider(seed)
+    // @ts-ignore
+    const did = new DID({ provider, resolver: KeyResolver.getResolver() })
+    await did.authenticate()
+    await this.mapWeb3AddressToEd25519Seed(address, seed)
+    return did;
   }
 }
